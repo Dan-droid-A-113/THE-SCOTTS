@@ -82,7 +82,7 @@ Green-Chain solves this problem by introducing:
 
 ## 🧱 Project Architecture
 
-```text
+
 THE-SCOTTS/
 ├── frontend/        # User interface & dashboards
 ├── backend/         # APIs and clearance logic
@@ -90,6 +90,9 @@ THE-SCOTTS/
 ├── docs/            # Documentation
 ├── docker-compose.yml
 └── README.md
+
+
+
 🛠️ Tech Stack
 Layer	Technologies
 🎨 Frontend	HTML, CSS, JavaScript, Tailwind CSS
