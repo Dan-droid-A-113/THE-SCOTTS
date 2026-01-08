@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
@@ -6,6 +6,8 @@ from datetime import datetime, date
 import sqlite3
 import json
 import os
+import csv
+import io
 
 app = FastAPI(title="Smart Clearance System API")
 
@@ -30,17 +32,20 @@ def init_db():
     conn = get_db()
     cursor = conn.cursor()
     
-    # Users table
+    # Users table with Google OAuth support
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            email TEXT,
+            picture TEXT,
             role TEXT NOT NULL CHECK(role IN ('manager', 'middleman')),
+            google_id TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # Stock table
+    # Stock table - each manager has their own storage
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS stock (
             stock_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,14 +85,6 @@ def init_db():
         )
     ''')
     
-    # Insert demo users if not exist
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users (user_id, name, role) VALUES ('manager1', 'Stock Manager 1', 'manager')")
-        cursor.execute("INSERT INTO users (user_id, name, role) VALUES ('manager2', 'Stock Manager 2', 'manager')")
-        cursor.execute("INSERT INTO users (user_id, name, role) VALUES ('middleman1', 'Middleman 1', 'middleman')")
-        cursor.execute("INSERT INTO users (user_id, name, role) VALUES ('middleman2', 'Middleman 2', 'middleman')")
-    
     conn.commit()
     conn.close()
 
@@ -97,6 +94,17 @@ init_db()
 # Pydantic models
 class UserLogin(BaseModel):
     user_id: str
+    role: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    picture: Optional[str] = None
+    google_id: Optional[str] = None
+
+class GoogleLogin(BaseModel):
+    google_id: str
+    email: str
+    name: str
+    picture: Optional[str] = None
     role: str
 
 class StockCreate(BaseModel):
@@ -114,6 +122,7 @@ class VoiceInput(BaseModel):
     user_id: str
     text: str
     context: Optional[dict] = None
+    role: Optional[str] = None  # 'manager' or 'middleman'
 
 class OrderCreate(BaseModel):
     stock_id: int
@@ -140,12 +149,42 @@ def login(user: UserLogin):
     # Auto-create user if not exists
     conn = get_db()
     cursor = conn.cursor()
+    name = user.name or f"{user.role.title()} {user.user_id}"
     cursor.execute(
-        "INSERT OR IGNORE INTO users (user_id, name, role) VALUES (?, ?, ?)",
-        (user.user_id, f"{user.role.title()} {user.user_id}", user.role)
+        "INSERT OR IGNORE INTO users (user_id, name, email, picture, role, google_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (user.user_id, name, user.email, user.picture, user.role, user.google_id)
     )
     conn.commit()
     cursor.execute("SELECT * FROM users WHERE user_id = ?", (user.user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    return {"success": True, "user": dict(result)}
+
+@app.post("/api/google-login")
+def google_login(user: GoogleLogin):
+    """Handle Google OAuth login - creates unique user based on Google ID"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Create unique user_id from google_id and role
+    user_id = f"google_{user.google_id}_{user.role}"
+    
+    # Check if user exists
+    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    
+    if result:
+        conn.close()
+        return {"success": True, "user": dict(result)}
+    
+    # Create new user
+    cursor.execute(
+        "INSERT INTO users (user_id, name, email, picture, role, google_id) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, user.name, user.email, user.picture, user.role, user.google_id)
+    )
+    conn.commit()
+    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
     
@@ -162,6 +201,67 @@ def get_users(role: Optional[str] = None):
     results = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return {"users": results}
+
+# CSV Upload endpoint for bulk stock import
+@app.post("/api/stock/upload-csv")
+async def upload_csv(file: UploadFile = File(...), manager_id: str = None):
+    """
+    Upload CSV file to bulk import stock data.
+    CSV format: product_name,quantity,expiry_date,price
+    """
+    if not manager_id:
+        raise HTTPException(status_code=400, detail="manager_id is required")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    decoded = content.decode('utf-8')
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    reader = csv.DictReader(io.StringIO(decoded))
+    imported = 0
+    errors = []
+    
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            product_name = row.get('product_name', '').strip()
+            quantity = int(row.get('quantity', 0))
+            expiry_date = row.get('expiry_date', '').strip()
+            price = float(row.get('price', 0)) if row.get('price') else None
+            
+            if not product_name or not expiry_date or quantity <= 0:
+                errors.append(f"Row {row_num}: Missing required fields")
+                continue
+            
+            # Validate date
+            try:
+                exp_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+                status = "expired" if exp_date < date.today() else "available"
+            except ValueError:
+                errors.append(f"Row {row_num}: Invalid date format (use YYYY-MM-DD)")
+                continue
+            
+            cursor.execute(
+                "INSERT INTO stock (manager_id, product_name, quantity, expiry_date, price, status) VALUES (?, ?, ?, ?, ?, ?)",
+                (manager_id, product_name, quantity, expiry_date, price, status)
+            )
+            imported += 1
+            
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+    
+    conn.commit()
+    conn.close()
+    
+    return {
+        "success": True,
+        "imported": imported,
+        "errors": errors,
+        "message": f"Successfully imported {imported} items" + (f" with {len(errors)} errors" if errors else "")
+    }
 
 # Stock endpoints
 @app.post("/api/stock")
@@ -358,53 +458,279 @@ def get_orders(middleman_id: Optional[str] = None, manager_id: Optional[str] = N
 def voice_agent(input: VoiceInput):
     """
     Smart AI agent that processes voice input and returns intelligent responses.
-    Uses context-aware logic to handle stock queries and order confirmations.
+    Supports both manager and middleman roles.
     """
     conn = get_db()
     cursor = conn.cursor()
     
     user_text = input.text.lower().strip()
     context = input.context or {}
+    role = input.role or 'middleman'
     
-    # Get available stock for context
-    cursor.execute('''
-        SELECT s.*, u.name as manager_name 
-        FROM stock s 
-        JOIN users u ON s.manager_id = u.user_id 
-        WHERE s.status = 'available'
-        ORDER BY s.expiry_date ASC
-    ''')
-    available_stock = [dict(row) for row in cursor.fetchall()]
-    
-    response = process_voice_query(user_text, available_stock, context, input.user_id, cursor, conn)
+    if role == 'manager':
+        # Get manager's own stock
+        cursor.execute('''
+            SELECT s.*, u.name as manager_name 
+            FROM stock s 
+            JOIN users u ON s.manager_id = u.user_id 
+            WHERE s.manager_id = ?
+            ORDER BY s.expiry_date ASC
+        ''', (input.user_id,))
+        stock_data = [dict(row) for row in cursor.fetchall()]
+        response = process_manager_voice_query(user_text, stock_data, context, input.user_id, cursor, conn)
+    else:
+        # Get all available stock for middleman
+        cursor.execute('''
+            SELECT s.*, u.name as manager_name 
+            FROM stock s 
+            JOIN users u ON s.manager_id = u.user_id 
+            WHERE s.status = 'available'
+            ORDER BY s.expiry_date ASC
+        ''')
+        available_stock = [dict(row) for row in cursor.fetchall()]
+        response = process_middleman_voice_query(user_text, available_stock, context, input.user_id, cursor, conn)
     
     conn.close()
     return response
 
-def process_voice_query(text: str, stock: list, context: dict, user_id: str, cursor, conn) -> dict:
-    """Process voice query and generate intelligent response"""
-    
+def process_manager_voice_query(text: str, stock: list, context: dict, user_id: str, cursor, conn) -> dict:
+    """Process voice query for stock managers"""
     today = date.today()
     
-    # Check for specific product mentions first
-    product_keywords = ['apple', 'milk', 'bread', 'vegetable', 'fruit', 'dairy', 'meat', 'fish', 'rice', 'wheat', 'oil', 'sugar']
-    mentioned_products = [kw for kw in product_keywords if kw in text]
+    # Greeting
+    if text.strip() in ['hello', 'hi', 'hey', 'start', 'hi there', 'hello there']:
+        return {
+            "response": "Hello! I'm your stock management assistant. I can help you check your inventory, find expiring items, and get stock summaries. What would you like to know?",
+            "action": "greeting",
+            "context": {"stage": "initial"}
+        }
     
-    # Intent detection - greeting only if no product mentioned and explicit greeting
-    if not mentioned_products and text.strip() in ['hello', 'hi', 'hey', 'start', 'hi there', 'hello there']:
+    # Stock summary
+    if any(word in text for word in ['summary', 'overview', 'status', 'how much', 'total']):
+        available = [s for s in stock if s['status'] == 'available']
+        expired = [s for s in stock if s['status'] == 'expired']
+        ordered = [s for s in stock if s['status'] == 'ordered']
+        
+        urgent = []
+        for item in available:
+            exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
+            if (exp_date - today).days <= 3:
+                urgent.append(item)
+        
+        response_text = f"Here's your inventory summary: {len(available)} items available, {len(ordered)} ordered, {len(expired)} expired. "
+        if urgent:
+            response_text += f"Warning: {len(urgent)} items expiring within 3 days!"
+        else:
+            response_text += "No urgent items expiring soon."
+        
+        return {
+            "response": response_text,
+            "action": "summary",
+            "data": {"available": len(available), "ordered": len(ordered), "expired": len(expired), "urgent": len(urgent)},
+            "context": {"stage": "initial"}
+        }
+    
+    # Expiring items
+    if any(word in text for word in ['expir', 'urgent', 'soon', 'critical']):
+        urgent_items = []
+        for item in stock:
+            if item['status'] != 'available':
+                continue
+            exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
+            days_left = (exp_date - today).days
+            if days_left <= 7:
+                item['days_left'] = days_left
+                urgent_items.append(item)
+        
+        urgent_items.sort(key=lambda x: x['days_left'])
+        
+        if not urgent_items:
+            return {
+                "response": "Great news! You have no items expiring within the next week.",
+                "action": "no_urgent",
+                "context": {"stage": "initial"}
+            }
+        
+        response_text = f"You have {len(urgent_items)} items expiring soon: "
+        for item in urgent_items[:5]:
+            response_text += f"{item['product_name']} ({item['days_left']} days, {item['quantity']} units), "
+        response_text = response_text.rstrip(", ") + "."
+        
+        return {
+            "response": response_text,
+            "action": "urgent_items",
+            "data": urgent_items[:5],
+            "context": {"stage": "initial"}
+        }
+    
+    # Search products
+    product_keywords = ['apple', 'milk', 'bread', 'vegetable', 'fruit', 'dairy', 'meat', 'fish', 'rice', 'wheat', 'oil', 'sugar']
+    mentioned = [kw for kw in product_keywords if kw in text]
+    
+    if mentioned or any(word in text for word in ['find', 'search', 'show', 'check']):
+        found = []
+        for item in stock:
+            if mentioned:
+                if any(kw in item['product_name'].lower() for kw in mentioned):
+                    exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
+                    item['days_left'] = (exp_date - today).days
+                    found.append(item)
+            else:
+                exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
+                item['days_left'] = (exp_date - today).days
+                found.append(item)
+        
+        if not found:
+            return {
+                "response": "I couldn't find any matching items in your inventory.",
+                "action": "no_results",
+                "context": {"stage": "initial"}
+            }
+        
+        found.sort(key=lambda x: x['days_left'])
+        response_text = f"Found {len(found)} items: "
+        for item in found[:5]:
+            response_text += f"{item['product_name']} ({item['quantity']} units, {item['days_left']} days left), "
+        response_text = response_text.rstrip(", ") + "."
+        
+        return {
+            "response": response_text,
+            "action": "search_results",
+            "data": found[:5],
+            "context": {"stage": "initial"}
+        }
+    
+    # Help
+    if any(word in text for word in ['help', 'what can', 'how']):
+        return {
+            "response": "I can help you with: Getting inventory summary - say 'show summary'. Finding expiring items - say 'what's expiring soon'. Searching products - say 'find apples'. What would you like to do?",
+            "action": "help",
+            "context": {"stage": "initial"}
+        }
+    
+    return {
+        "response": "I can help you manage your stock. Try saying 'show summary', 'what's expiring soon', or 'find' followed by a product name.",
+        "action": "default",
+        "context": {"stage": "initial"}
+    }
+
+def process_middleman_voice_query(text: str, stock: list, context: dict, user_id: str, cursor, conn) -> dict:
+    """Process voice query for middlemen - with improved product selection"""
+    today = date.today()
+    
+    # Check for number selection (1, 2, 3, first, second, third, etc.)
+    number_words = {'1': 0, '2': 1, '3': 2, '4': 3, '5': 4, 'one': 0, 'first': 0, 'two': 1, 'second': 1, 'three': 2, 'third': 2, 'four': 3, 'fourth': 3, 'five': 4, 'fifth': 4}
+    
+    # Handle product selection from multiple options
+    if context.get('stage') == 'awaiting_selection' and context.get('results'):
+        results = context['results']
+        selected_index = None
+        
+        # Check for number selection
+        for word, idx in number_words.items():
+            if word in text.split():
+                selected_index = idx
+                break
+        
+        # Check for product name match
+        if selected_index is None:
+            for idx, item in enumerate(results):
+                if item['product_name'].lower() in text or any(word in text for word in item['product_name'].lower().split()):
+                    selected_index = idx
+                    break
+        
+        if selected_index is not None and selected_index < len(results):
+            item = results[selected_index]
+            return {
+                "response": f"You selected {item['product_name']} from {item['manager_name']}. {item['quantity']} units available at ₹{item['price'] or 'negotiable'} per unit, expiring in {item['days_left']} days. Say 'confirm' to place the order, or tell me how many units you want (in multiples of 10).",
+                "action": "product_selected",
+                "data": item,
+                "context": {"stage": "confirm_order", "selected_item": item}
+            }
+        
+        # If no valid selection, prompt again
+        return {
+            "response": "Please select a product by saying its number (1, 2, 3...) or name. " + " ".join([f"{i+1}. {r['product_name']}" for i, r in enumerate(results[:5])]),
+            "action": "selection_prompt",
+            "data": results[:5],
+            "context": context
+        }
+    
+    # Handle order confirmation with quantity
+    if context.get('stage') == 'confirm_order' and context.get('selected_item'):
+        item = context['selected_item']
+        
+        # Check for quantity specification
+        quantity = None
+        words = text.split()
+        for i, word in enumerate(words):
+            if word.isdigit():
+                quantity = int(word)
+                break
+        
+        # Check for confirmation
+        if any(word in text for word in ['yes', 'confirm', 'order', 'proceed', 'ok', 'okay']):
+            order_qty = quantity if quantity else item['quantity']
+            # Round to nearest 10
+            order_qty = max(10, (order_qty // 10) * 10)
+            
+            if order_qty > item['quantity']:
+                order_qty = (item['quantity'] // 10) * 10
+                if order_qty == 0:
+                    order_qty = item['quantity']
+            
+            # Create order
+            cursor.execute(
+                "INSERT INTO orders (stock_id, middleman_id, quantity, status) VALUES (?, ?, ?, 'confirmed')",
+                (item['stock_id'], user_id, order_qty)
+            )
+            
+            # Update stock
+            new_qty = item['quantity'] - order_qty
+            if new_qty <= 0:
+                cursor.execute("UPDATE stock SET quantity = 0, status = 'ordered' WHERE stock_id = ?", (item['stock_id'],))
+            else:
+                cursor.execute("UPDATE stock SET quantity = ? WHERE stock_id = ?", (new_qty, item['stock_id']))
+            
+            conn.commit()
+            
+            return {
+                "response": f"Order confirmed! You've ordered {order_qty} units of {item['product_name']} from {item['manager_name']}. The supplier has been notified. Thank you!",
+                "action": "order_confirmed",
+                "order": {"stock_id": item['stock_id'], "quantity": order_qty},
+                "context": {"stage": "completed"}
+            }
+        
+        if any(word in text for word in ['no', 'cancel', 'nevermind']):
+            return {
+                "response": "Order cancelled. What else can I help you find?",
+                "action": "cancelled",
+                "context": {"stage": "initial"}
+            }
+        
+        return {
+            "response": f"Would you like to order {item['product_name']}? Say 'confirm' to proceed or specify a quantity in multiples of 10.",
+            "action": "awaiting_confirmation",
+            "context": context
+        }
+    
+    # Greeting
+    if text.strip() in ['hello', 'hi', 'hey', 'start', 'hi there', 'hello there']:
         return {
             "response": "Hello! I'm your Smart Clearance assistant. I can help you find available stock, check expiry dates, and place orders. What would you like to do today?",
             "action": "greeting",
             "context": {"stage": "initial"}
         }
     
-    # Search for products - check if user is looking for something
+    # Search for products
+    product_keywords = ['apple', 'milk', 'bread', 'vegetable', 'fruit', 'dairy', 'meat', 'fish', 'rice', 'wheat', 'oil', 'sugar', 'orange', 'banana', 'tomato', 'potato', 'onion', 'chicken', 'egg', 'cheese', 'butter', 'yogurt']
+    mentioned_products = [kw for kw in product_keywords if kw in text]
+    
     search_intent = any(word in text for word in ['find', 'search', 'looking for', 'want', 'need', 'show', 'available', 'what', 'get', 'buy'])
+    
     if search_intent or mentioned_products:
-        # Extract product keywords
         products_found = []
         
-        # Check for expiry-related queries
         expiry_filter = None
         if 'this week' in text or 'week' in text:
             expiry_filter = 7
@@ -419,12 +745,10 @@ def process_voice_query(text: str, stock: list, context: dict, user_id: str, cur
             exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
             days_left = (exp_date - today).days
             
-            # Filter by product name if mentioned
             if mentioned_products:
                 if not any(kw in item['product_name'].lower() for kw in mentioned_products):
                     continue
             
-            # Filter by expiry
             if expiry_filter and days_left > expiry_filter:
                 continue
             
@@ -438,101 +762,47 @@ def process_voice_query(text: str, stock: list, context: dict, user_id: str, cur
                 "context": {"stage": "search_failed"}
             }
         
-        # Sort by expiry (most urgent first)
         products_found.sort(key=lambda x: x['days_left'])
         
-        # Build response
         if len(products_found) == 1:
             item = products_found[0]
             price_info = f" at ₹{item['price']}" if item['price'] else ""
-            response_text = f"I found {item['product_name']} from {item['manager_name']}. {item['quantity']} units available{price_info}, expiring in {item['days_left']} days. Would you like to place an order?"
+            return {
+                "response": f"I found {item['product_name']} from {item['manager_name']}. {item['quantity']} units available{price_info}, expiring in {item['days_left']} days. Say 'confirm' to order or specify a quantity in multiples of 10.",
+                "action": "single_result",
+                "data": item,
+                "context": {"stage": "confirm_order", "selected_item": item}
+            }
         else:
-            response_text = f"I found {len(products_found)} items. "
-            # Highlight top 3
-            for i, item in enumerate(products_found[:3]):
-                price_info = f" at ₹{item['price']}" if item['price'] else ""
-                response_text += f"{item['product_name']}: {item['quantity']} units{price_info}, {item['days_left']} days left. "
+            # Multiple results - ask user to select
+            response_text = f"I found {len(products_found)} options. Please select one: "
+            for i, item in enumerate(products_found[:5]):
+                price_info = f"₹{item['price']}" if item['price'] else "negotiable"
+                response_text += f"{i+1}. {item['product_name']} ({item['quantity']} units, {price_info}, {item['days_left']} days left). "
             
-            if len(products_found) > 3:
-                response_text += f"And {len(products_found) - 3} more items. "
+            response_text += "Say the number or name to select."
             
-            response_text += "Which one interests you?"
-        
-        return {
-            "response": response_text,
-            "action": "search_results",
-            "data": products_found[:5],
-            "context": {"stage": "product_selection", "results": products_found}
-        }
-    
-    # Order confirmation
-    if any(word in text for word in ['yes', 'confirm', 'order', 'buy', 'proceed', 'take']):
-        # Check if we have context from previous search
-        if context.get('stage') == 'product_selection' and context.get('results'):
-            results = context['results']
-            if len(results) == 1:
-                item = results[0]
-                # Create order
-                cursor.execute(
-                    "INSERT INTO orders (stock_id, middleman_id, quantity, status) VALUES (?, ?, ?, 'confirmed')",
-                    (item['stock_id'], user_id, item['quantity'])
-                )
-                cursor.execute(
-                    "UPDATE stock SET status = 'ordered' WHERE stock_id = ?",
-                    (item['stock_id'],)
-                )
-                conn.commit()
-                
-                return {
-                    "response": f"Order confirmed! You've ordered {item['quantity']} units of {item['product_name']} from {item['manager_name']}. The stock manager has been notified. Thank you for using Smart Clearance!",
-                    "action": "order_confirmed",
-                    "order": {"stock_id": item['stock_id'], "quantity": item['quantity']},
-                    "context": {"stage": "completed"}
-                }
-            else:
-                return {
-                    "response": "I found multiple items. Please specify which product you'd like to order, or say the supplier name.",
-                    "action": "clarification_needed",
-                    "context": context
-                }
-        
-        # Check for specific product in text
-        for item in stock:
-            if item['product_name'].lower() in text:
-                cursor.execute(
-                    "INSERT INTO orders (stock_id, middleman_id, quantity, status) VALUES (?, ?, ?, 'confirmed')",
-                    (item['stock_id'], user_id, item['quantity'])
-                )
-                cursor.execute(
-                    "UPDATE stock SET status = 'ordered' WHERE stock_id = ?",
-                    (item['stock_id'],)
-                )
-                conn.commit()
-                
-                return {
-                    "response": f"Order confirmed for {item['product_name']}! {item['quantity']} units have been reserved. The stock manager will be notified.",
-                    "action": "order_confirmed",
-                    "order": {"stock_id": item['stock_id'], "quantity": item['quantity']},
-                    "context": {"stage": "completed"}
-                }
-        
-        return {
-            "response": "I'd be happy to help you place an order. Which product would you like to order? You can say something like 'I want apples' or 'show me what's expiring soon'.",
-            "action": "order_guidance",
-            "context": {"stage": "awaiting_product"}
-        }
+            return {
+                "response": response_text,
+                "action": "multiple_results",
+                "data": products_found[:5],
+                "context": {"stage": "awaiting_selection", "results": products_found[:5]}
+            }
     
     # Price inquiry
     if any(word in text for word in ['price', 'cost', 'cheap', 'cheapest', 'expensive', 'budget']):
         priced_stock = [s for s in stock if s['price']]
         if priced_stock:
+            for item in priced_stock:
+                exp_date = datetime.strptime(item['expiry_date'], "%Y-%m-%d").date()
+                item['days_left'] = (exp_date - today).days
             priced_stock.sort(key=lambda x: x['price'])
             cheapest = priced_stock[0]
             return {
-                "response": f"The most affordable option is {cheapest['product_name']} at ₹{cheapest['price']} per unit from {cheapest['manager_name']}. Would you like to order it?",
+                "response": f"The most affordable option is {cheapest['product_name']} at ₹{cheapest['price']} per unit from {cheapest['manager_name']}. Say 'confirm' to order.",
                 "action": "price_info",
-                "data": priced_stock[:3],
-                "context": {"stage": "product_selection", "results": [cheapest]}
+                "data": cheapest,
+                "context": {"stage": "confirm_order", "selected_item": cheapest}
             }
         return {
             "response": "I don't have pricing information for the current stock. Would you like to see what's available?",
@@ -552,16 +822,26 @@ def process_voice_query(text: str, stock: list, context: dict, user_id: str, cur
         
         if urgent_stock:
             urgent_stock.sort(key=lambda x: x['days_left'])
-            response_text = f"I found {len(urgent_stock)} urgent items expiring within 3 days: "
-            for item in urgent_stock[:3]:
-                response_text += f"{item['product_name']} ({item['days_left']} days left), "
-            response_text = response_text.rstrip(", ") + ". Would you like to order any of these?"
+            
+            if len(urgent_stock) == 1:
+                item = urgent_stock[0]
+                return {
+                    "response": f"Found 1 urgent item: {item['product_name']} expiring in {item['days_left']} days. {item['quantity']} units available. Say 'confirm' to order.",
+                    "action": "single_urgent",
+                    "data": item,
+                    "context": {"stage": "confirm_order", "selected_item": item}
+                }
+            
+            response_text = f"Found {len(urgent_stock)} urgent items: "
+            for i, item in enumerate(urgent_stock[:5]):
+                response_text += f"{i+1}. {item['product_name']} ({item['days_left']} days left). "
+            response_text += "Say the number to select one."
             
             return {
                 "response": response_text,
                 "action": "urgent_stock",
-                "data": urgent_stock,
-                "context": {"stage": "product_selection", "results": urgent_stock}
+                "data": urgent_stock[:5],
+                "context": {"stage": "awaiting_selection", "results": urgent_stock[:5]}
             }
         return {
             "response": "Good news! There's no critically expiring stock at the moment. Would you like to see all available items?",
@@ -572,7 +852,7 @@ def process_voice_query(text: str, stock: list, context: dict, user_id: str, cur
     # Cancel/No
     if any(word in text for word in ['no', 'cancel', 'nevermind', 'stop']):
         return {
-            "response": "No problem! Let me know if you need anything else. You can ask about available stock, prices, or place an order anytime.",
+            "response": "No problem! Let me know if you need anything else.",
             "action": "cancelled",
             "context": {"stage": "initial"}
         }
@@ -580,14 +860,13 @@ def process_voice_query(text: str, stock: list, context: dict, user_id: str, cur
     # Help
     if any(word in text for word in ['help', 'how', 'what can']):
         return {
-            "response": "I can help you with: Finding available stock - say 'show me available items'. Checking expiring items - say 'what's expiring soon'. Placing orders - say 'I want to order' followed by the product. Checking prices - say 'what's the cheapest option'. What would you like to do?",
+            "response": "I can help you with: Finding stock - say 'show me apples' or 'what's available'. Checking urgent items - say 'what's expiring soon'. Placing orders - after finding items, say 'confirm' or specify quantity. What would you like to do?",
             "action": "help",
             "context": {"stage": "initial"}
         }
     
-    # Default response
     return {
-        "response": "I'm here to help you find and order clearance stock. You can ask me things like 'What's available?', 'Show me items expiring this week', or 'I want to order apples'. How can I assist you?",
+        "response": "I'm here to help you find and order clearance stock. Try saying 'show me apples', 'what's expiring soon', or 'find milk'. How can I assist you?",
         "action": "default",
         "context": {"stage": "initial"}
     }

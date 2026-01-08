@@ -4,12 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <title>Smart Clearance System</title>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%); min-height: 100vh; }
-        .glass { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.5); }
+        body { min-height: 100vh; transition: background 0.3s ease; }
+        body.light { background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #f0fdfa 100%); }
+        body.dark { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+        .glass { backdrop-filter: blur(20px); transition: all 0.3s ease; }
+        .glass.light { background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(255, 255, 255, 0.5); }
+        .glass.dark { background: rgba(30, 41, 59, 0.85); border: 1px solid rgba(71, 85, 105, 0.5); }
         .gradient-btn { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
         .gradient-btn:hover { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
         .gradient-btn-blue { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
@@ -23,59 +38,84 @@
         .status-expired { background: #fee2e2; color: #991b1b; }
         .status-ordered { background: #dbeafe; color: #1e40af; }
         .status-reserved { background: #fef3c7; color: #92400e; }
+        .dark .status-available { background: #166534; color: #dcfce7; }
+        .dark .status-expired { background: #991b1b; color: #fee2e2; }
+        .dark .status-ordered { background: #1e40af; color: #dbeafe; }
+        .dark .status-reserved { background: #92400e; color: #fef3c7; }
         .fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .slide-up { animation: slideUp 0.4s ease-out; }
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         .urgent-badge { animation: urgentPulse 2s ease-in-out infinite; }
         @keyframes urgentPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        input:focus, select:focus, textarea:focus { outline: none; ring: 2px; ring-color: #10b981; }
         .scrollbar-thin::-webkit-scrollbar { width: 6px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark .scrollbar-thin::-webkit-scrollbar-track { background: #334155; }
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #64748b; }
+        .file-drop-zone { border: 2px dashed #cbd5e1; transition: all 0.3s ease; }
+        .file-drop-zone:hover, .file-drop-zone.dragover { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .dark .file-drop-zone { border-color: #475569; }
+        .dark .file-drop-zone:hover, .dark .file-drop-zone.dragover { border-color: #10b981; }
+        input[type="range"] { -webkit-appearance: none; height: 8px; border-radius: 4px; background: #e2e8f0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #10b981; cursor: pointer; }
+        .dark input[type="range"] { background: #475569; }
     </style>
 </head>
-<body>
-    <!-- App Container -->
+<body class="light">
     <div id="app" class="min-h-screen">
-        
         <!-- Login Screen -->
         <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4">
-            <div class="glass rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full slide-up">
+            <div class="glass light rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full slide-up">
                 <div class="text-center mb-8">
                     <div class="w-20 h-20 gradient-btn rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                         <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>
                     </div>
-                    <h1 class="text-3xl font-extrabold text-gray-900">Smart Clearance</h1>
-                    <p class="text-gray-500 mt-2">Reduce waste. Maximize value.</p>
+                    <h1 class="text-3xl font-extrabold text-gray-900 dark:text-white">Smart Clearance</h1>
+                    <p class="text-gray-500 dark:text-gray-400 mt-2">Reduce waste. Maximize value.</p>
                 </div>
                 
                 <div class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Your ID</label>
-                        <input type="text" id="userId" placeholder="Enter your user ID" 
-                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                    <!-- Google Sign In -->
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Sign in with Google for personalized storage</p>
+                        <div id="googleSignInBtn" class="flex justify-center"></div>
+                    </div>
+                    
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-white dark:bg-slate-800 text-gray-500">Or continue with ID</span>
+                        </div>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Select Role</label>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Your ID</label>
+                        <input type="text" id="userId" placeholder="Enter your user ID" 
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Select Role</label>
                         <div class="grid grid-cols-2 gap-4">
                             <button onclick="selectRole('manager')" id="roleManager"
-                                    class="p-4 rounded-xl border-2 border-gray-200 hover:border-emerald-500 transition-all text-center group">
+                                    class="p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-emerald-500 transition-all text-center group">
                                 <svg class="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                                 </svg>
-                                <span class="font-semibold text-gray-700">Stock Manager</span>
+                                <span class="font-semibold text-gray-700 dark:text-gray-300">Stock Manager</span>
                                 <p class="text-xs text-gray-400 mt-1">Add & manage stock</p>
                             </button>
                             <button onclick="selectRole('middleman')" id="roleMiddleman"
-                                    class="p-4 rounded-xl border-2 border-gray-200 hover:border-blue-500 transition-all text-center group">
+                                    class="p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-all text-center group">
                                 <svg class="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                                 </svg>
-                                <span class="font-semibold text-gray-700">Middleman</span>
+                                <span class="font-semibold text-gray-700 dark:text-gray-300">Middleman</span>
                                 <p class="text-xs text-gray-400 mt-1">Browse & order</p>
                             </button>
                         </div>
@@ -89,10 +129,10 @@
             </div>
         </div>
         
-        <!-- Main Dashboard (Hidden initially) -->
+        <!-- Main Dashboard -->
         <div id="dashboard" class="hidden">
             <!-- Navigation -->
-            <nav class="glass border-b border-gray-200 sticky top-0 z-50">
+            <nav class="glass light border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
                 <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 gradient-btn rounded-xl flex items-center justify-center shadow">
@@ -101,20 +141,33 @@
                             </svg>
                         </div>
                         <div>
-                            <h1 class="text-lg font-bold text-gray-900">Smart Clearance</h1>
-                            <p class="text-xs text-gray-500" id="userRoleDisplay">Stock Manager</p>
+                            <h1 class="text-lg font-bold text-gray-900 dark:text-white">Smart Clearance</h1>
+                            <p class="text-xs text-gray-500 dark:text-gray-400" id="userRoleDisplay">Stock Manager</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-4">
                         <div id="statsBar" class="hidden md:flex items-center gap-4 text-sm">
-                            <span class="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                            <span class="px-3 py-1 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full font-medium">
                                 <span id="statAvailable">0</span> Available
                             </span>
-                            <span class="px-3 py-1 bg-amber-100 text-amber-700 rounded-full font-medium">
+                            <span class="px-3 py-1 bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 rounded-full font-medium">
                                 <span id="statUrgent">0</span> Urgent
                             </span>
                         </div>
-                        <button onclick="logout()" class="text-gray-500 hover:text-gray-700 font-medium text-sm flex items-center gap-1">
+                        <!-- Dark Mode Toggle -->
+                        <button onclick="toggleDarkMode()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Toggle Dark Mode">
+                            <svg id="sunIcon" class="w-5 h-5 text-gray-600 dark:text-gray-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                            </svg>
+                            <svg id="moonIcon" class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                            </svg>
+                        </button>
+                        <!-- User Avatar -->
+                        <div id="userAvatar" class="hidden">
+                            <img id="userPicture" class="w-8 h-8 rounded-full" src="" alt="User">
+                        </div>
+                        <button onclick="logout()" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 font-medium text-sm flex items-center gap-1">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
                             </svg>
@@ -127,10 +180,11 @@
             <!-- Stock Manager View -->
             <div id="managerView" class="hidden max-w-7xl mx-auto px-4 py-8">
                 <div class="grid lg:grid-cols-3 gap-8">
-                    <!-- Add Stock Form -->
-                    <div class="lg:col-span-1">
-                        <div class="glass rounded-2xl p-6 shadow-xl sticky top-24">
-                            <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <!-- Left Column: Add Stock & CSV Upload -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Add Stock Form -->
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                                 </svg>
@@ -138,38 +192,96 @@
                             </h2>
                             <form id="addStockForm" class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Name</label>
                                     <input type="text" id="productName" required placeholder="e.g., Organic Apples"
-                                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                                           class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantity</label>
                                         <input type="number" id="quantity" required min="1" placeholder="100"
-                                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
                                     </div>
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Price (₹)</label>
                                         <input type="number" id="price" step="0.01" placeholder="50.00"
-                                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
                                     </div>
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiry Date</label>
                                     <input type="date" id="expiryDate" required
-                                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
+                                           class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200">
                                 </div>
                                 <button type="submit" class="w-full gradient-btn text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all">
                                     Add Stock
                                 </button>
                             </form>
                         </div>
+                        
+                        <!-- CSV Upload -->
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                Bulk Import (CSV)
+                            </h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Upload a CSV file to import multiple stock items at once.</p>
+                            
+                            <div id="csvDropZone" class="file-drop-zone rounded-xl p-6 text-center cursor-pointer" onclick="document.getElementById('csvFile').click()">
+                                <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Drop CSV file here or click to browse</p>
+                                <p class="text-xs text-gray-400 mt-1">Format: product_name, quantity, expiry_date, price</p>
+                                <input type="file" id="csvFile" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                            </div>
+                            
+                            <div id="csvStatus" class="mt-4 hidden">
+                                <div class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm">
+                                    <span id="csvStatusText"></span>
+                                </div>
+                            </div>
+                            
+                            <a href="#" onclick="downloadCSVTemplate()" class="text-sm text-blue-600 hover:text-blue-700 mt-3 inline-block">
+                                Download template CSV
+                            </a>
+                        </div>
+                        
+                        <!-- Manager Voice Agent -->
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                                </svg>
+                                AI Voice Assistant
+                            </h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Ask about your inventory, expiring items, or get summaries.</p>
+                            
+                            <button onclick="toggleVoiceAgent()" id="managerVoiceBtn"
+                                    class="w-full bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+                                </svg>
+                                <span id="managerVoiceBtnText">Talk to Assistant</span>
+                            </button>
+                            
+                            <div id="managerVoiceStatus" class="mt-4 text-center text-sm text-gray-500 hidden">
+                                <div class="flex items-center justify-center gap-2">
+                                    <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                                    <span>Listening...</span>
+                                </div>
+                            </div>
+                            
+                            <div id="managerConversationLog" class="mt-4 max-h-48 overflow-y-auto scrollbar-thin space-y-2 hidden"></div>
+                        </div>
                     </div>
                     
                     <!-- Stock List -->
                     <div class="lg:col-span-2">
                         <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xl font-bold text-gray-900">Your Stock Inventory</h2>
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Your Stock Inventory</h2>
                             <button onclick="loadManagerStock()" class="text-emerald-600 hover:text-emerald-700 font-medium text-sm flex items-center gap-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -177,9 +289,7 @@
                                 Refresh
                             </button>
                         </div>
-                        <div id="managerStockList" class="space-y-4">
-                            <!-- Stock items will be loaded here -->
-                        </div>
+                        <div id="managerStockList" class="space-y-4"></div>
                     </div>
                 </div>
             </div>
@@ -190,8 +300,8 @@
                     <!-- Filters & Voice Agent -->
                     <div class="lg:col-span-1 space-y-6">
                         <!-- Filters -->
-                        <div class="glass rounded-2xl p-6 shadow-xl">
-                            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
                                 </svg>
@@ -199,13 +309,13 @@
                             </h2>
                             <div class="space-y-4">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Search Product</label>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search Product</label>
                                     <input type="text" id="filterProduct" placeholder="e.g., milk, apples"
-                                           class="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                           class="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                 </div>
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Within</label>
-                                    <select id="filterExpiry" class="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Expiry Within</label>
+                                    <select id="filterExpiry" class="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
                                         <option value="">All dates</option>
                                         <option value="1">Today</option>
                                         <option value="3">3 days</option>
@@ -220,14 +330,14 @@
                         </div>
                         
                         <!-- Voice Agent -->
-                        <div class="glass rounded-2xl p-6 shadow-xl">
-                            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
                                 </svg>
                                 AI Voice Agent
                             </h2>
-                            <p class="text-sm text-gray-500 mb-4">Talk to our AI assistant to find stock and place orders using your voice.</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Talk to our AI assistant to find stock and place orders using your voice.</p>
                             
                             <button onclick="toggleVoiceAgent()" id="voiceBtn"
                                     class="w-full bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2">
@@ -244,14 +354,12 @@
                                 </div>
                             </div>
                             
-                            <!-- Conversation Log -->
-                            <div id="conversationLog" class="mt-4 max-h-48 overflow-y-auto scrollbar-thin space-y-2 hidden">
-                            </div>
+                            <div id="conversationLog" class="mt-4 max-h-48 overflow-y-auto scrollbar-thin space-y-2 hidden"></div>
                         </div>
                         
                         <!-- My Orders -->
-                        <div class="glass rounded-2xl p-6 shadow-xl">
-                            <h2 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <div class="glass light rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                                 </svg>
@@ -266,7 +374,7 @@
                     <!-- Stock Marketplace -->
                     <div class="lg:col-span-2">
                         <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xl font-bold text-gray-900">Available Stock Marketplace</h2>
+                            <h2 class="text-xl font-bold text-gray-900 dark:text-white">Available Stock Marketplace</h2>
                             <button onclick="loadMarketplace()" class="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
@@ -274,9 +382,7 @@
                                 Refresh
                             </button>
                         </div>
-                        <div id="marketplaceList" class="space-y-4">
-                            <!-- Marketplace items will be loaded here -->
-                        </div>
+                        <div id="marketplaceList" class="space-y-4"></div>
                     </div>
                 </div>
             </div>
@@ -284,13 +390,34 @@
         
         <!-- Order Confirmation Modal -->
         <div id="orderModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-            <div class="glass rounded-2xl p-8 max-w-md w-full slide-up">
-                <h3 class="text-xl font-bold text-gray-900 mb-4">Confirm Order</h3>
-                <div id="orderDetails" class="mb-6">
-                    <!-- Order details will be populated here -->
+            <div class="glass light rounded-2xl p-8 max-w-md w-full slide-up">
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Confirm Order</h3>
+                <div id="orderDetails" class="mb-6"></div>
+                
+                <!-- Quantity Selector -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Order Quantity (multiples of 10)</label>
+                    <div class="flex items-center gap-4">
+                        <button onclick="adjustQuantity(-10)" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl font-bold hover:bg-gray-300 dark:hover:bg-gray-600">-</button>
+                        <input type="number" id="orderQuantity" min="10" step="10" value="10" 
+                               class="flex-1 text-center text-2xl font-bold py-2 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white">
+                        <button onclick="adjustQuantity(10)" class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl font-bold hover:bg-gray-300 dark:hover:bg-gray-600">+</button>
+                    </div>
+                    <input type="range" id="quantitySlider" min="10" max="100" step="10" value="10" 
+                           class="w-full mt-3" oninput="updateQuantityFromSlider(this.value)">
+                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>10</span>
+                        <span id="maxQuantityLabel">100</span>
+                    </div>
                 </div>
+                
+                <div id="orderTotal" class="text-center mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl">
+                    <span class="text-gray-600 dark:text-gray-400">Total: </span>
+                    <span id="totalPrice" class="text-xl font-bold text-emerald-600 dark:text-emerald-400">₹0</span>
+                </div>
+                
                 <div class="flex gap-4">
-                    <button onclick="closeOrderModal()" class="flex-1 py-3 rounded-xl border-2 border-gray-200 font-semibold text-gray-700 hover:bg-gray-50">
+                    <button onclick="closeOrderModal()" class="flex-1 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                         Cancel
                     </button>
                     <button onclick="confirmOrder()" class="flex-1 gradient-btn text-white font-bold py-3 rounded-xl">
@@ -302,13 +429,13 @@
         
         <!-- Toast Notification -->
         <div id="toast" class="fixed bottom-4 right-4 z-50 hidden">
-            <div class="glass rounded-xl px-6 py-4 shadow-xl flex items-center gap-3 fade-in">
+            <div class="glass light rounded-xl px-6 py-4 shadow-xl flex items-center gap-3 fade-in">
                 <div id="toastIcon" class="w-8 h-8 rounded-full flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
                 </div>
-                <span id="toastMessage" class="font-medium text-gray-800"></span>
+                <span id="toastMessage" class="font-medium text-gray-800 dark:text-gray-200"></span>
             </div>
         </div>
     </div>
@@ -316,8 +443,10 @@
     <script>
         // Configuration
         const API_BASE = window.location.hostname === 'localhost' 
-            ? 'http://localhost:12001' 
-            : 'https://work-2-sudslpvwflbuicqg.prod-runtime.all-hands.dev';
+            ? 'http://localhost:12000' 
+            : 'https://work-1-powjzejlozslgbgy.prod-runtime.all-hands.dev';
+        
+        const GOOGLE_CLIENT_ID = ''; // Add your Google Client ID here
         
         // State
         let currentUser = null;
@@ -326,6 +455,96 @@
         let isListening = false;
         let recognition = null;
         let pendingOrder = null;
+        let isDarkMode = false;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('expiryDate').min = today;
+            
+            // Check for saved dark mode preference
+            if (localStorage.getItem('darkMode') === 'true') {
+                toggleDarkMode();
+            }
+            
+            // Initialize Google Sign-In if client ID is set
+            if (GOOGLE_CLIENT_ID) {
+                initGoogleSignIn();
+            }
+            
+            // Setup CSV drag and drop
+            setupCSVDragDrop();
+        });
+        
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark', isDarkMode);
+            document.body.classList.toggle('light', !isDarkMode);
+            
+            // Update all glass elements
+            document.querySelectorAll('.glass').forEach(el => {
+                el.classList.toggle('dark', isDarkMode);
+                el.classList.toggle('light', !isDarkMode);
+            });
+            
+            // Toggle icons
+            document.getElementById('sunIcon').classList.toggle('hidden', !isDarkMode);
+            document.getElementById('moonIcon').classList.toggle('hidden', isDarkMode);
+            
+            localStorage.setItem('darkMode', isDarkMode);
+        }
+        
+        // Google Sign-In
+        function initGoogleSignIn() {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleSignIn
+            });
+            google.accounts.id.renderButton(
+                document.getElementById('googleSignInBtn'),
+                { theme: 'outline', size: 'large', width: 280 }
+            );
+        }
+        
+        async function handleGoogleSignIn(response) {
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            
+            if (!selectedRole) {
+                showToast('Please select a role first', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/google-login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        google_id: payload.sub,
+                        email: payload.email,
+                        name: payload.name,
+                        picture: payload.picture,
+                        role: selectedRole
+                    })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    showDashboard();
+                    showToast(`Welcome, ${currentUser.name}!`, 'success');
+                    
+                    // Show user avatar
+                    if (payload.picture) {
+                        document.getElementById('userPicture').src = payload.picture;
+                        document.getElementById('userAvatar').classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Google login error:', error);
+                showToast('Login failed. Please try again.', 'error');
+            }
+        }
         
         // Initialize Speech Recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -357,13 +576,13 @@
         // Role Selection
         function selectRole(role) {
             selectedRole = role;
-            document.getElementById('roleManager').classList.remove('border-emerald-500', 'bg-emerald-50');
-            document.getElementById('roleMiddleman').classList.remove('border-blue-500', 'bg-blue-50');
+            document.getElementById('roleManager').classList.remove('border-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-900/30');
+            document.getElementById('roleMiddleman').classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30');
             
             if (role === 'manager') {
-                document.getElementById('roleManager').classList.add('border-emerald-500', 'bg-emerald-50');
+                document.getElementById('roleManager').classList.add('border-emerald-500', 'bg-emerald-50', 'dark:bg-emerald-900/30');
             } else {
-                document.getElementById('roleMiddleman').classList.add('border-blue-500', 'bg-blue-50');
+                document.getElementById('roleMiddleman').classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30');
             }
             
             updateLoginButton();
@@ -409,6 +628,7 @@
             document.getElementById('userId').value = '';
             document.getElementById('roleManager').classList.remove('border-emerald-500', 'bg-emerald-50');
             document.getElementById('roleMiddleman').classList.remove('border-blue-500', 'bg-blue-50');
+            document.getElementById('userAvatar').classList.add('hidden');
             updateLoginButton();
         }
         
@@ -444,6 +664,92 @@
             }
         }
         
+        // CSV Upload Functions
+        function setupCSVDragDrop() {
+            const dropZone = document.getElementById('csvDropZone');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleCSVFile(files[0]);
+                }
+            }, false);
+        }
+        
+        function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleCSVFile(file);
+            }
+        }
+        
+        async function handleCSVFile(file) {
+            if (!file.name.endsWith('.csv')) {
+                showToast('Please upload a CSV file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/stock/upload-csv?manager_id=${currentUser.user_id}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('csvStatus');
+                const statusText = document.getElementById('csvStatusText');
+                statusEl.classList.remove('hidden');
+                
+                if (data.success) {
+                    statusText.textContent = data.message;
+                    statusEl.querySelector('div').className = 'p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm';
+                    loadManagerStock();
+                    loadStats();
+                    showToast(data.message, 'success');
+                } else {
+                    statusText.textContent = data.detail || 'Upload failed';
+                    statusEl.querySelector('div').className = 'p-3 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm';
+                }
+            } catch (error) {
+                console.error('CSV upload error:', error);
+                showToast('Failed to upload CSV', 'error');
+            }
+            
+            document.getElementById('csvFile').value = '';
+        }
+        
+        function downloadCSVTemplate() {
+            const template = 'product_name,quantity,expiry_date,price\nOrganic Apples,100,2026-01-15,45.00\nFresh Milk,50,2026-01-10,30.00\nWhole Wheat Bread,75,2026-01-12,25.00';
+            const blob = new Blob([template], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'stock_template.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
         // Stock Manager Functions
         async function loadManagerStock() {
             try {
@@ -461,37 +767,37 @@
             
             if (stock.length === 0) {
                 container.innerHTML = `
-                    <div class="glass rounded-2xl p-8 text-center">
-                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="glass light rounded-2xl p-8 text-center">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
                         </svg>
-                        <p class="text-gray-500">No stock added yet. Add your first item!</p>
+                        <p class="text-gray-500 dark:text-gray-400">No stock added yet. Add your first item!</p>
                     </div>
                 `;
                 return;
             }
             
             container.innerHTML = stock.map(item => `
-                <div class="glass rounded-2xl p-6 fade-in">
+                <div class="glass light rounded-2xl p-6 fade-in">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-3 mb-2">
-                                <h3 class="text-lg font-bold text-gray-900">${item.product_name}</h3>
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-white">${item.product_name}</h3>
                                 <span class="px-2 py-1 rounded-full text-xs font-semibold status-${item.status}">${item.status}</span>
-                                ${item.days_until_expiry <= 3 && item.status === 'available' ? '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold urgent-badge">URGENT</span>' : ''}
+                                ${item.days_until_expiry <= 3 && item.status === 'available' ? '<span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold urgent-badge">URGENT</span>' : ''}
                             </div>
                             <div class="grid grid-cols-3 gap-4 text-sm">
                                 <div>
-                                    <span class="text-gray-500">Quantity</span>
-                                    <p class="font-semibold text-gray-900">${item.quantity} units</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Quantity</span>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${item.quantity} units</p>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Price</span>
-                                    <p class="font-semibold text-gray-900">${item.price ? '₹' + item.price : 'Not set'}</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Price</span>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${item.price ? '₹' + item.price : 'Not set'}</p>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Expires</span>
-                                    <p class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600' : 'text-gray-900'}">${item.days_until_expiry} days</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Expires</span>
+                                    <p class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}">${item.days_until_expiry} days</p>
                                 </div>
                             </div>
                         </div>
@@ -567,37 +873,37 @@
             
             if (stock.length === 0) {
                 container.innerHTML = `
-                    <div class="glass rounded-2xl p-8 text-center">
-                        <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="glass light rounded-2xl p-8 text-center">
+                        <svg class="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        <p class="text-gray-500">No stock available at the moment.</p>
+                        <p class="text-gray-500 dark:text-gray-400">No stock available at the moment.</p>
                     </div>
                 `;
                 return;
             }
             
             container.innerHTML = stock.map(item => `
-                <div class="glass rounded-2xl p-6 fade-in hover:shadow-lg transition-shadow">
+                <div class="glass light rounded-2xl p-6 fade-in hover:shadow-lg transition-shadow">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-3 mb-2">
-                                <h3 class="text-lg font-bold text-gray-900">${item.product_name}</h3>
-                                ${item.days_until_expiry <= 3 ? '<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold urgent-badge">URGENT</span>' : ''}
+                                <h3 class="text-lg font-bold text-gray-900 dark:text-white">${item.product_name}</h3>
+                                ${item.days_until_expiry <= 3 ? '<span class="px-2 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full text-xs font-semibold urgent-badge">URGENT</span>' : ''}
                             </div>
-                            <p class="text-sm text-gray-500 mb-3">From: ${item.manager_name}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">From: ${item.manager_name}</p>
                             <div class="grid grid-cols-3 gap-4 text-sm">
                                 <div>
-                                    <span class="text-gray-500">Quantity</span>
-                                    <p class="font-semibold text-gray-900">${item.quantity} units</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Quantity</span>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${item.quantity} units</p>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Price</span>
-                                    <p class="font-semibold text-gray-900">${item.price ? '₹' + item.price : 'Negotiable'}</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Price</span>
+                                    <p class="font-semibold text-gray-900 dark:text-white">${item.price ? '₹' + item.price : 'Negotiable'}</p>
                                 </div>
                                 <div>
-                                    <span class="text-gray-500">Expires in</span>
-                                    <p class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600' : item.days_until_expiry <= 7 ? 'text-amber-600' : 'text-gray-900'}">${item.days_until_expiry} days</p>
+                                    <span class="text-gray-500 dark:text-gray-400">Expires in</span>
+                                    <p class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600 dark:text-red-400' : item.days_until_expiry <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-white'}">${item.days_until_expiry} days</p>
                                 </div>
                             </div>
                         </div>
@@ -631,35 +937,83 @@
             }
         }
         
-        // Order Functions
+        // Order Functions with Quantity Selection
         function openOrderModal(item) {
             pendingOrder = item;
+            
+            // Set max quantity (rounded to nearest 10)
+            const maxQty = Math.floor(item.quantity / 10) * 10 || item.quantity;
+            document.getElementById('quantitySlider').max = maxQty;
+            document.getElementById('maxQuantityLabel').textContent = maxQty;
+            
+            // Set initial quantity
+            const initialQty = Math.min(10, maxQty);
+            document.getElementById('orderQuantity').value = initialQty;
+            document.getElementById('orderQuantity').max = maxQty;
+            document.getElementById('quantitySlider').value = initialQty;
+            
             document.getElementById('orderDetails').innerHTML = `
                 <div class="space-y-3">
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Product</span>
-                        <span class="font-semibold">${item.product_name}</span>
+                        <span class="text-gray-500 dark:text-gray-400">Product</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">${item.product_name}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Supplier</span>
-                        <span class="font-semibold">${item.manager_name}</span>
+                        <span class="text-gray-500 dark:text-gray-400">Supplier</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">${item.manager_name}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Quantity</span>
-                        <span class="font-semibold">${item.quantity} units</span>
+                        <span class="text-gray-500 dark:text-gray-400">Available</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">${item.quantity} units</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Price</span>
-                        <span class="font-semibold">${item.price ? '₹' + (item.price * item.quantity).toFixed(2) + ' total' : 'To be negotiated'}</span>
+                        <span class="text-gray-500 dark:text-gray-400">Unit Price</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">${item.price ? '₹' + item.price : 'Negotiable'}</span>
                     </div>
                     <div class="flex justify-between">
-                        <span class="text-gray-500">Expires</span>
-                        <span class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600' : ''}">${item.expiry_date}</span>
+                        <span class="text-gray-500 dark:text-gray-400">Expires</span>
+                        <span class="font-semibold ${item.days_until_expiry <= 3 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}">${item.expiry_date}</span>
                     </div>
                 </div>
             `;
+            
+            updateTotalPrice();
             document.getElementById('orderModal').classList.remove('hidden');
         }
+        
+        function adjustQuantity(delta) {
+            const input = document.getElementById('orderQuantity');
+            const slider = document.getElementById('quantitySlider');
+            let newValue = parseInt(input.value) + delta;
+            newValue = Math.max(10, Math.min(newValue, parseInt(input.max)));
+            newValue = Math.round(newValue / 10) * 10;
+            input.value = newValue;
+            slider.value = newValue;
+            updateTotalPrice();
+        }
+        
+        function updateQuantityFromSlider(value) {
+            const roundedValue = Math.round(value / 10) * 10;
+            document.getElementById('orderQuantity').value = roundedValue;
+            document.getElementById('quantitySlider').value = roundedValue;
+            updateTotalPrice();
+        }
+        
+        function updateTotalPrice() {
+            if (!pendingOrder) return;
+            const quantity = parseInt(document.getElementById('orderQuantity').value);
+            const total = pendingOrder.price ? (pendingOrder.price * quantity).toFixed(2) : 'Negotiable';
+            document.getElementById('totalPrice').textContent = pendingOrder.price ? `₹${total}` : total;
+        }
+        
+        document.getElementById('orderQuantity').addEventListener('input', (e) => {
+            let value = parseInt(e.target.value) || 10;
+            value = Math.round(value / 10) * 10;
+            value = Math.max(10, Math.min(value, parseInt(e.target.max)));
+            e.target.value = value;
+            document.getElementById('quantitySlider').value = value;
+            updateTotalPrice();
+        });
         
         function closeOrderModal() {
             document.getElementById('orderModal').classList.add('hidden');
@@ -669,6 +1023,8 @@
         async function confirmOrder() {
             if (!pendingOrder) return;
             
+            const quantity = parseInt(document.getElementById('orderQuantity').value);
+            
             try {
                 const response = await fetch(`${API_BASE}/api/orders`, {
                     method: 'POST',
@@ -676,14 +1032,14 @@
                     body: JSON.stringify({
                         stock_id: pendingOrder.stock_id,
                         middleman_id: currentUser.user_id,
-                        quantity: pendingOrder.quantity
+                        quantity: quantity
                     })
                 });
                 
                 const data = await response.json();
                 if (data.success) {
                     showToast('Order confirmed successfully!', 'success');
-                    speak(`Order confirmed for ${pendingOrder.product_name}. The stock manager has been notified.`);
+                    speak(`Order confirmed for ${quantity} units of ${pendingOrder.product_name}. The stock manager has been notified.`);
                     closeOrderModal();
                     loadMarketplace();
                     loadMyOrders();
@@ -714,9 +1070,9 @@
             }
             
             container.innerHTML = orders.map(order => `
-                <div class="p-3 bg-emerald-50 rounded-xl text-sm">
-                    <div class="font-semibold text-emerald-800">${order.product_name}</div>
-                    <div class="text-emerald-600">${order.quantity} units • ${order.status}</div>
+                <div class="p-3 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl text-sm">
+                    <div class="font-semibold text-emerald-800 dark:text-emerald-300">${order.product_name}</div>
+                    <div class="text-emerald-600 dark:text-emerald-400">${order.quantity} units • ${order.status}</div>
                 </div>
             `).join('');
         }
@@ -739,10 +1095,16 @@
             isListening = true;
             recognition.start();
             
-            document.getElementById('voiceBtn').classList.add('pulse-mic');
-            document.getElementById('voiceBtnText').textContent = 'Listening...';
-            document.getElementById('voiceStatus').classList.remove('hidden');
-            document.getElementById('conversationLog').classList.remove('hidden');
+            const isManager = currentUser.role === 'manager';
+            const btn = document.getElementById(isManager ? 'managerVoiceBtn' : 'voiceBtn');
+            const btnText = document.getElementById(isManager ? 'managerVoiceBtnText' : 'voiceBtnText');
+            const status = document.getElementById(isManager ? 'managerVoiceStatus' : 'voiceStatus');
+            const log = document.getElementById(isManager ? 'managerConversationLog' : 'conversationLog');
+            
+            btn.classList.add('pulse-mic');
+            btnText.textContent = 'Listening...';
+            status.classList.remove('hidden');
+            log.classList.remove('hidden');
         }
         
         function stopListening() {
@@ -751,9 +1113,14 @@
                 recognition.stop();
             }
             
-            document.getElementById('voiceBtn').classList.remove('pulse-mic');
-            document.getElementById('voiceBtnText').textContent = 'Talk to Agent';
-            document.getElementById('voiceStatus').classList.add('hidden');
+            const isManager = currentUser.role === 'manager';
+            const btn = document.getElementById(isManager ? 'managerVoiceBtn' : 'voiceBtn');
+            const btnText = document.getElementById(isManager ? 'managerVoiceBtnText' : 'voiceBtnText');
+            const status = document.getElementById(isManager ? 'managerVoiceStatus' : 'voiceStatus');
+            
+            btn.classList.remove('pulse-mic');
+            btnText.textContent = 'Talk to ' + (isManager ? 'Assistant' : 'Agent');
+            status.classList.add('hidden');
         }
         
         async function processVoiceInput(text) {
@@ -764,7 +1131,8 @@
                     body: JSON.stringify({
                         user_id: currentUser.user_id,
                         text: text,
-                        context: voiceContext
+                        context: voiceContext,
+                        role: currentUser.role
                     })
                 });
                 
@@ -781,9 +1149,9 @@
                     loadStats();
                 }
                 
-                // Auto-restart listening after response
+                // Auto-restart listening after response (except for completed actions)
                 setTimeout(() => {
-                    if (data.action !== 'order_confirmed' && data.action !== 'cancelled') {
+                    if (data.action !== 'order_confirmed' && data.action !== 'cancelled' && data.context?.stage !== 'completed') {
                         startListening();
                     }
                 }, 3000);
@@ -796,15 +1164,16 @@
         }
         
         function addToConversation(role, text) {
-            const container = document.getElementById('conversationLog');
+            const isManager = currentUser.role === 'manager';
+            const container = document.getElementById(isManager ? 'managerConversationLog' : 'conversationLog');
             const isUser = role === 'user';
             
             container.innerHTML += `
-                <div class="p-3 rounded-xl ${isUser ? 'bg-blue-100 ml-4' : 'bg-gray-100 mr-4'} fade-in">
-                    <div class="text-xs font-semibold ${isUser ? 'text-blue-600' : 'text-gray-600'} mb-1">
-                        ${isUser ? 'You' : 'AI Agent'}
+                <div class="p-3 rounded-xl ${isUser ? 'bg-blue-100 dark:bg-blue-900/30 ml-4' : 'bg-gray-100 dark:bg-gray-700 mr-4'} fade-in">
+                    <div class="text-xs font-semibold ${isUser ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'} mb-1">
+                        ${isUser ? 'You' : 'AI Assistant'}
                     </div>
-                    <div class="text-sm text-gray-800">${text}</div>
+                    <div class="text-sm text-gray-800 dark:text-gray-200">${text}</div>
                 </div>
             `;
             
@@ -835,12 +1204,6 @@
             toast.classList.remove('hidden');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
-        
-        // Set minimum date for expiry input
-        document.addEventListener('DOMContentLoaded', () => {
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('expiryDate').min = today;
-        });
     </script>
 </body>
 </html>
