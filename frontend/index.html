@@ -128,13 +128,55 @@
             <div id="managerView" class="hidden max-w-7xl mx-auto px-4 py-8">
                 <div class="grid lg:grid-cols-3 gap-8">
                     <!-- Add Stock Form -->
-                    <div class="lg:col-span-1">
-                        <div class="glass rounded-2xl p-6 shadow-xl sticky top-24">
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- CSV Upload Section -->
+                        <div class="glass rounded-2xl p-6 shadow-xl">
+                            <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                Bulk Upload (CSV)
+                            </h2>
+                            <p class="text-sm text-gray-500 mb-4">Upload a CSV file to add multiple stock items at once.</p>
+                            
+                            <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleCSVUpload(event)">
+                            <label for="csvFileInput"
+                                   class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all">
+                                <svg class="w-10 h-10 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                <span class="text-sm font-medium text-gray-600">Click to upload CSV</span>
+                                <span class="text-xs text-gray-400 mt-1">or drag and drop</span>
+                            </label>
+                            
+                            <div id="csvStatus" class="mt-4 hidden">
+                                <div class="flex items-center gap-2 text-sm">
+                                    <div id="csvStatusIcon" class="w-5 h-5"></div>
+                                    <span id="csvStatusText"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                                <p class="text-xs font-semibold text-gray-600 mb-1">CSV Format:</p>
+                                <code class="text-xs text-gray-500">product_name,quantity,expiry_date,price</code>
+                                <p class="text-xs text-gray-400 mt-1">Date format: YYYY-MM-DD</p>
+                            </div>
+                            
+                            <a href="demo_stock.csv" download class="mt-3 text-xs text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Download sample CSV
+                            </a>
+                        </div>
+                        
+                        <!-- Manual Add Stock Form -->
+                        <div class="glass rounded-2xl p-6 shadow-xl">
                             <h2 class="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                                 <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                                 </svg>
-                                Add New Stock
+                                Add Single Item
                             </h2>
                             <form id="addStockForm" class="space-y-4">
                                 <div>
@@ -352,6 +394,130 @@
                     stopListening();
                 }
             };
+        }
+        
+        // CSV Upload Handler
+        async function handleCSVUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const statusDiv = document.getElementById('csvStatus');
+            const statusIcon = document.getElementById('csvStatusIcon');
+            const statusText = document.getElementById('csvStatusText');
+            
+            statusDiv.classList.remove('hidden');
+            statusIcon.innerHTML = '<div class="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>';
+            statusText.textContent = 'Processing CSV...';
+            statusText.className = 'text-gray-600';
+            
+            try {
+                const text = await file.text();
+                const lines = text.trim().split('\n');
+                const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+                
+                // Validate headers
+                const requiredHeaders = ['product_name', 'quantity', 'expiry_date'];
+                const hasRequiredHeaders = requiredHeaders.every(h => headers.includes(h));
+                
+                if (!hasRequiredHeaders) {
+                    throw new Error('CSV must have columns: product_name, quantity, expiry_date (price is optional)');
+                }
+                
+                const productNameIdx = headers.indexOf('product_name');
+                const quantityIdx = headers.indexOf('quantity');
+                const expiryDateIdx = headers.indexOf('expiry_date');
+                const priceIdx = headers.indexOf('price');
+                
+                let successCount = 0;
+                let errorCount = 0;
+                
+                // Process each row (skip header)
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    const values = parseCSVLine(line);
+                    
+                    const stockData = {
+                        product_name: values[productNameIdx]?.trim(),
+                        quantity: parseInt(values[quantityIdx]),
+                        expiry_date: values[expiryDateIdx]?.trim(),
+                        price: priceIdx >= 0 && values[priceIdx] ? parseFloat(values[priceIdx]) : null
+                    };
+                    
+                    // Validate row data
+                    if (!stockData.product_name || isNaN(stockData.quantity) || !stockData.expiry_date) {
+                        errorCount++;
+                        continue;
+                    }
+                    
+                    // Validate date format
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(stockData.expiry_date)) {
+                        errorCount++;
+                        continue;
+                    }
+                    
+                    try {
+                        const response = await fetch(`${API_BASE}/api/stock?manager_id=${currentUser.user_id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(stockData)
+                        });
+                        
+                        if (response.ok) {
+                            successCount++;
+                        } else {
+                            errorCount++;
+                        }
+                    } catch (e) {
+                        errorCount++;
+                    }
+                }
+                
+                // Show result
+                if (successCount > 0) {
+                    statusIcon.innerHTML = '<svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+                    statusText.textContent = `Successfully added ${successCount} items${errorCount > 0 ? `, ${errorCount} failed` : ''}`;
+                    statusText.className = 'text-emerald-600 font-medium';
+                    showToast(`${successCount} stock items added from CSV!`, 'success');
+                    loadManagerStock();
+                    loadStats();
+                } else {
+                    throw new Error('No valid items found in CSV');
+                }
+                
+            } catch (error) {
+                statusIcon.innerHTML = '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+                statusText.textContent = error.message;
+                statusText.className = 'text-red-600';
+                showToast('CSV upload failed: ' + error.message, 'error');
+            }
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // Parse CSV line handling quoted values
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            
+            return result;
         }
         
         // Role Selection
