@@ -1,53 +1,61 @@
-# Smart Clearance System (Green‑Chain)
+<div align="center">
 
-A hackathon prototype to reduce food waste by intelligently clearing
-near‑expiry inventory using a real‑time, voice‑enabled decision system.
+# 🟢 Green-Chain  
+### Smart Clearance System for Near-Expiry Inventory  
 
----
+🚀 *Hackathon Project by Team The Scotts*  
 
-## Problem
-Warehouses and retailers lose money due to unsold near‑expiry goods.
-Manual negotiation with buyers is slow and inefficient.
+![Status](https://img.shields.io/badge/status-prototype-orange)
+![Tech](https://img.shields.io/badge/stack-full--stack-blue)
+![License](https://img.shields.io/badge/license-hackathon--use-green)
 
----
-
-## Solution
-Green‑Chain automates clearance decisions using:
-- A decision‑making backend
-- A real‑time voice assistant
-- Automated buyer shortlisting
-
-This enables fast confirmation and export of excess stock.
+</div>
 
 ---
 
-## Architecture Overview
-- **Frontend**: HTML + JavaScript (browser UI + voice)
-- **Backend**: FastAPI (decision & confirmation logic)
-- **Voice Assistant**: Triggered, real‑time, browser‑based (no phone calls)
-- **Docker**: Optional setup to run services together
+## 🧠 Problem
+
+Warehouses lose **money, time, and sanity** due to:
+- ⏳ Near-expiry inventory
+- 🤝 Manual buyer negotiations
+- 🐌 Slow clearance decisions
+
+Perfectly usable goods expire because humans love inefficiency.
 
 ---
 
-## Team Roles
-- **Member 1**: Repository management, README, Docker
-- **Member 2**: Backend (FastAPI & logic)
-- **Member 3**: Frontend UI + browser voice
-- **Member 4**: Voice agent flow & documentation
+## 💡 Solution
+
+**Green-Chain** automates the clearance process by:
+- 📦 Analyzing inventory & expiry data
+- 📍 Matching buyers by location & history
+- 🧮 Prioritizing urgent stock
+- 🎙️ Enabling real-time decisions via a voice agent
+
+Less waste. Faster clearance. Fewer regrets.
 
 ---
 
-## Demo Instructions
+## ✨ Features
 
-### Frontend
-1. Open `frontend/index.html` in a browser
-2. Click **Start Voice Agent / Run Triage**
-3. The system speaks and confirms export decisions
+| Feature | Description |
+|------|------------|
+| 📂 Inventory Upload | CSV-based structured uploads |
+| ⚡ Smart Matching | Buyers shortlisted automatically |
+| ⏰ Expiry Intelligence | Urgency-based decisions |
+| 🗣️ Voice Assistant | Real-time interaction |
+| 🧩 Modular Design | Frontend, backend & AI split cleanly |
 
-### Backend
-Run locally:
-```bash
-docker-compose up
-cd backend
-pip install -r requirements.txt
-uvicorn app:app --reload
+---
+
+## 🗂️ Project Structure
+
+```text
+THE-SCOTTS-main/
+├── frontend/        # UI & dashboards
+├── backend/         # APIs & business logic
+├── ai-agent/        # Voice + decision engine
+├── docs/            # Documentation
+├── docker-compose.yml
+└── README.md
+
