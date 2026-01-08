@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import Optional, List
 from datetime import datetime, date, timedelta
 import sqlite3
@@ -8,6 +8,9 @@ import json
 import os
 import csv
 import io
+import hashlib
+import secrets
+import re
 
 app = FastAPI(title="Smart Clearance System API")
 
@@ -28,14 +31,75 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def hash_password(password: str, salt: str = None) -> tuple:
+    """Hash password with salt using SHA-256"""
+    if salt is None:
+        salt = secrets.token_hex(16)
+    hashed = hashlib.sha256((password + salt).encode()).hexdigest()
+    return hashed, salt
+
+def verify_password(password: str, hashed: str, salt: str) -> bool:
+    """Verify password against stored hash"""
+    check_hash, _ = hash_password(password, salt)
+    return check_hash == hashed
+
+def validate_username(username: str) -> tuple:
+    """
+    Validate username follows standard rules:
+    - 3-20 characters
+    - Starts with a letter
+    - Only alphanumeric and underscores
+    - No consecutive underscores
+    Returns (is_valid, error_message)
+    """
+    if not username:
+        return False, "Username is required"
+    if len(username) < 3:
+        return False, "Username must be at least 3 characters"
+    if len(username) > 20:
+        return False, "Username must be at most 20 characters"
+    if not username[0].isalpha():
+        return False, "Username must start with a letter"
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', username):
+        return False, "Username can only contain letters, numbers, and underscores"
+    if '__' in username:
+        return False, "Username cannot have consecutive underscores"
+    return True, None
+
+def validate_password(password: str) -> tuple:
+    """
+    Validate password strength:
+    - At least 8 characters
+    - Contains uppercase and lowercase
+    - Contains at least one number
+    - Contains at least one special character
+    Returns (is_valid, error_message)
+    """
+    if not password:
+        return False, "Password is required"
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'\d', password):
+        return False, "Password must contain at least one number"
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False, "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>)"
+    return True, None
+
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
     
-    # Users table with Google OAuth support
+    # Users table with authentication
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             user_id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            password_salt TEXT NOT NULL,
             name TEXT NOT NULL,
             email TEXT,
             picture TEXT,
@@ -92,13 +156,16 @@ def init_db():
 init_db()
 
 # Pydantic models
-class UserLogin(BaseModel):
-    user_id: str
+class UserRegister(BaseModel):
+    username: str
+    password: str
+    name: str
     role: str
-    name: Optional[str] = None
     email: Optional[str] = None
-    picture: Optional[str] = None
-    google_id: Optional[str] = None
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
 
 class GoogleLogin(BaseModel):
     google_id: str
@@ -135,31 +202,107 @@ def health_check():
     return {"status": "Smart Clearance System running", "version": "1.0"}
 
 # User endpoints
-@app.post("/api/login")
-def login(user: UserLogin):
+@app.post("/api/register")
+def register(user: UserRegister):
+    """Register a new user with username and password"""
+    # Validate username
+    is_valid, error = validate_username(user.username)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+    
+    # Validate password
+    is_valid, error = validate_password(user.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error)
+    
+    # Validate role
+    if user.role not in ['manager', 'middleman']:
+        raise HTTPException(status_code=400, detail="Role must be 'manager' or 'middleman'")
+    
+    # Validate name
+    if not user.name or len(user.name.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
+    
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE user_id = ? AND role = ?", (user.user_id, user.role))
-    result = cursor.fetchone()
-    conn.close()
     
-    if result:
-        return {"success": True, "user": dict(result)}
+    # Check if username already exists
+    cursor.execute("SELECT username FROM users WHERE username = ?", (user.username.lower(),))
+    if cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Username already taken")
     
-    # Auto-create user if not exists
-    conn = get_db()
-    cursor = conn.cursor()
-    name = user.name or f"{user.role.title()} {user.user_id}"
+    # Hash password
+    password_hash, password_salt = hash_password(user.password)
+    
+    # Create unique user_id
+    user_id = f"{user.username.lower()}_{user.role}"
+    
+    # Insert user
     cursor.execute(
-        "INSERT OR IGNORE INTO users (user_id, name, email, picture, role, google_id) VALUES (?, ?, ?, ?, ?, ?)",
-        (user.user_id, name, user.email, user.picture, user.role, user.google_id)
+        """INSERT INTO users (user_id, username, password_hash, password_salt, name, email, role) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (user_id, user.username.lower(), password_hash, password_salt, user.name.strip(), user.email, user.role)
     )
     conn.commit()
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user.user_id,))
+    
+    cursor.execute("SELECT user_id, username, name, email, role, created_at FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
     
-    return {"success": True, "user": dict(result)}
+    return {"success": True, "message": "Registration successful", "user": dict(result)}
+
+@app.post("/api/login")
+def login(user: UserLogin):
+    """Login with username and password"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Find user by username
+    cursor.execute(
+        "SELECT user_id, username, password_hash, password_salt, name, email, role, created_at FROM users WHERE username = ?", 
+        (user.username.lower(),)
+    )
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Verify password
+    if not verify_password(user.password, result['password_hash'], result['password_salt']):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    # Return user data (excluding password fields)
+    user_data = {
+        'user_id': result['user_id'],
+        'username': result['username'],
+        'name': result['name'],
+        'email': result['email'],
+        'role': result['role'],
+        'created_at': result['created_at']
+    }
+    
+    return {"success": True, "user": user_data}
+
+@app.get("/api/check-username/{username}")
+def check_username(username: str):
+    """Check if username is available and valid"""
+    # Validate format
+    is_valid, error = validate_username(username)
+    if not is_valid:
+        return {"available": False, "valid": False, "error": error}
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM users WHERE username = ?", (username.lower(),))
+    exists = cursor.fetchone() is not None
+    conn.close()
+    
+    if exists:
+        return {"available": False, "valid": True, "error": "Username already taken"}
+    
+    return {"available": True, "valid": True}
 
 @app.post("/api/google-login")
 def google_login(user: GoogleLogin):
@@ -169,22 +312,26 @@ def google_login(user: GoogleLogin):
     
     # Create unique user_id from google_id and role
     user_id = f"google_{user.google_id}_{user.role}"
+    username = f"google_{user.google_id[:8]}"
     
     # Check if user exists
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT user_id, username, name, email, role, created_at FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     
     if result:
         conn.close()
         return {"success": True, "user": dict(result)}
     
-    # Create new user
+    # Create new user with a placeholder password (Google users don't need password)
+    password_hash, password_salt = hash_password(secrets.token_hex(32))
+    
     cursor.execute(
-        "INSERT INTO users (user_id, name, email, picture, role, google_id) VALUES (?, ?, ?, ?, ?, ?)",
-        (user_id, user.name, user.email, user.picture, user.role, user.google_id)
+        """INSERT INTO users (user_id, username, password_hash, password_salt, name, email, picture, role, google_id) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (user_id, username, password_hash, password_salt, user.name, user.email, user.picture, user.role, user.google_id)
     )
     conn.commit()
-    cursor.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT user_id, username, name, email, role, created_at FROM users WHERE user_id = ?", (user_id,))
     result = cursor.fetchone()
     conn.close()
     

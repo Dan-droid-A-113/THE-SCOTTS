@@ -77,54 +77,123 @@
                     <p class="text-gray-500 dark:text-gray-400 mt-2">Reduce waste. Maximize value.</p>
                 </div>
                 
-                <div class="space-y-6">
-                    <!-- Google Sign In -->
-                    <div id="googleLoginSection" class="text-center hidden">
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">Sign in with Google for personalized storage</p>
-                        <div id="googleSignInBtn" class="flex justify-center"></div>
-                        <div class="relative my-4">
-                            <div class="absolute inset-0 flex items-center">
-                                <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
-                            </div>
-                            <div class="relative flex justify-center text-sm">
-                                <span class="px-2 bg-white dark:bg-slate-800 text-gray-500">Or continue with ID</span>
-                            </div>
+                <!-- Tab Switcher -->
+                <div class="flex mb-6 bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                    <button onclick="showLoginTab()" id="loginTab" 
+                            class="flex-1 py-2 rounded-lg font-semibold transition-all bg-white dark:bg-slate-600 text-gray-900 dark:text-white shadow">
+                        Login
+                    </button>
+                    <button onclick="showRegisterTab()" id="registerTab"
+                            class="flex-1 py-2 rounded-lg font-semibold transition-all text-gray-500 dark:text-gray-400">
+                        Register
+                    </button>
+                </div>
+                
+                <!-- Login Form -->
+                <div id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                        <input type="text" id="loginUsername" placeholder="Enter your username" 
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                        <div class="relative">
+                            <input type="password" id="loginPassword" placeholder="Enter your password" 
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all pr-12">
+                            <button type="button" onclick="togglePasswordVisibility('loginPassword')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
-                    
+                    <button onclick="login()" id="loginBtn"
+                            class="w-full gradient-btn text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all">
+                        Login
+                    </button>
+                    <div id="loginError" class="hidden text-red-500 text-sm text-center"></div>
+                </div>
+                
+                <!-- Register Form -->
+                <div id="registerForm" class="space-y-4 hidden">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Your Unique ID</label>
-                        <input type="text" id="userId" placeholder="Enter your unique user ID" 
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
+                        <input type="text" id="registerName" placeholder="Enter your full name" 
                                class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Each ID has its own separate storage</p>
                     </div>
-                    
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Username</label>
+                        <input type="text" id="registerUsername" placeholder="Choose a username" oninput="checkUsernameAvailability()"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        <p id="usernameHint" class="text-xs text-gray-500 dark:text-gray-400 mt-1">3-20 characters, starts with letter, letters/numbers/underscores only</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Password</label>
+                        <div class="relative">
+                            <input type="password" id="registerPassword" placeholder="Create a password" oninput="checkPasswordStrength()"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all pr-12">
+                            <button type="button" onclick="togglePasswordVisibility('registerPassword')" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="passwordStrength" class="mt-2 hidden">
+                            <div class="flex gap-1 mb-1">
+                                <div id="str1" class="h-1 flex-1 rounded bg-gray-200"></div>
+                                <div id="str2" class="h-1 flex-1 rounded bg-gray-200"></div>
+                                <div id="str3" class="h-1 flex-1 rounded bg-gray-200"></div>
+                                <div id="str4" class="h-1 flex-1 rounded bg-gray-200"></div>
+                            </div>
+                            <p id="passwordHint" class="text-xs text-gray-500"></p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Confirm Password</label>
+                        <input type="password" id="registerConfirmPassword" placeholder="Confirm your password" oninput="checkPasswordMatch()"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-slate-700 dark:text-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all">
+                        <p id="passwordMatchHint" class="text-xs mt-1 hidden"></p>
+                    </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Select Role</label>
                         <div class="grid grid-cols-2 gap-4">
-                            <button onclick="selectRole('manager')" id="roleManager"
-                                    class="p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-emerald-500 transition-all text-center group">
-                                <svg class="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button type="button" onclick="selectRole('manager')" id="roleManager"
+                                    class="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-emerald-500 transition-all text-center group">
+                                <svg class="w-6 h-6 mx-auto mb-1 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
                                 </svg>
-                                <span class="font-semibold text-gray-700 dark:text-gray-300">Stock Manager</span>
-                                <p class="text-xs text-gray-400 mt-1">Add & manage stock</p>
+                                <span class="font-semibold text-sm text-gray-700 dark:text-gray-300">Stock Manager</span>
                             </button>
-                            <button onclick="selectRole('middleman')" id="roleMiddleman"
-                                    class="p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-all text-center group">
-                                <svg class="w-8 h-8 mx-auto mb-2 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <button type="button" onclick="selectRole('middleman')" id="roleMiddleman"
+                                    class="p-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 transition-all text-center group">
+                                <svg class="w-6 h-6 mx-auto mb-1 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                                 </svg>
-                                <span class="font-semibold text-gray-700 dark:text-gray-300">Middleman</span>
-                                <p class="text-xs text-gray-400 mt-1">Browse & order</p>
+                                <span class="font-semibold text-sm text-gray-700 dark:text-gray-300">Middleman</span>
                             </button>
                         </div>
                     </div>
-                    
-                    <button onclick="login()" id="loginBtn" disabled
-                            class="w-full gradient-btn text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                        Login
+                    <button onclick="register()" id="registerBtn"
+                            class="w-full gradient-btn text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all">
+                        Create Account
                     </button>
+                    <div id="registerError" class="hidden text-red-500 text-sm text-center"></div>
+                </div>
+                
+                <!-- Google Sign In (optional) -->
+                <div id="googleLoginSection" class="text-center mt-6 hidden">
+                    <div class="relative mb-4">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                        </div>
+                        <div class="relative flex justify-center text-sm">
+                            <span class="px-2 bg-white dark:bg-slate-800 text-gray-500">Or continue with</span>
+                        </div>
+                    </div>
+                    <div id="googleSignInBtn" class="flex justify-center"></div>
                 </div>
             </div>
         </div>
@@ -574,6 +643,135 @@
             };
         }
         
+        // Tab switching
+        function showLoginTab() {
+            document.getElementById('loginTab').classList.add('bg-white', 'dark:bg-slate-600', 'text-gray-900', 'dark:text-white', 'shadow');
+            document.getElementById('loginTab').classList.remove('text-gray-500', 'dark:text-gray-400');
+            document.getElementById('registerTab').classList.remove('bg-white', 'dark:bg-slate-600', 'text-gray-900', 'dark:text-white', 'shadow');
+            document.getElementById('registerTab').classList.add('text-gray-500', 'dark:text-gray-400');
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+        }
+        
+        function showRegisterTab() {
+            document.getElementById('registerTab').classList.add('bg-white', 'dark:bg-slate-600', 'text-gray-900', 'dark:text-white', 'shadow');
+            document.getElementById('registerTab').classList.remove('text-gray-500', 'dark:text-gray-400');
+            document.getElementById('loginTab').classList.remove('bg-white', 'dark:bg-slate-600', 'text-gray-900', 'dark:text-white', 'shadow');
+            document.getElementById('loginTab').classList.add('text-gray-500', 'dark:text-gray-400');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('loginForm').classList.add('hidden');
+        }
+        
+        // Password visibility toggle
+        function togglePasswordVisibility(inputId) {
+            const input = document.getElementById(inputId);
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+        
+        // Username availability check
+        let usernameCheckTimeout;
+        async function checkUsernameAvailability() {
+            const username = document.getElementById('registerUsername').value.trim();
+            const hint = document.getElementById('usernameHint');
+            
+            clearTimeout(usernameCheckTimeout);
+            
+            if (username.length < 3) {
+                hint.textContent = '3-20 characters, starts with letter, letters/numbers/underscores only';
+                hint.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1';
+                return;
+            }
+            
+            usernameCheckTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/api/check-username/${encodeURIComponent(username)}`);
+                    const data = await response.json();
+                    
+                    if (data.available) {
+                        hint.textContent = '✓ Username available';
+                        hint.className = 'text-xs text-emerald-600 dark:text-emerald-400 mt-1';
+                    } else {
+                        hint.textContent = '✗ ' + data.error;
+                        hint.className = 'text-xs text-red-500 mt-1';
+                    }
+                } catch (error) {
+                    console.error('Username check error:', error);
+                }
+            }, 500);
+        }
+        
+        // Password strength checker
+        function checkPasswordStrength() {
+            const password = document.getElementById('registerPassword').value;
+            const strengthDiv = document.getElementById('passwordStrength');
+            const hint = document.getElementById('passwordHint');
+            
+            if (password.length === 0) {
+                strengthDiv.classList.add('hidden');
+                return;
+            }
+            
+            strengthDiv.classList.remove('hidden');
+            
+            let strength = 0;
+            const checks = {
+                length: password.length >= 8,
+                upper: /[A-Z]/.test(password),
+                lower: /[a-z]/.test(password),
+                number: /\d/.test(password),
+                special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+            };
+            
+            strength = Object.values(checks).filter(Boolean).length;
+            
+            const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
+            const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+            
+            for (let i = 1; i <= 4; i++) {
+                const bar = document.getElementById('str' + i);
+                bar.className = 'h-1 flex-1 rounded ' + (i <= strength ? colors[Math.min(strength - 1, 3)] : 'bg-gray-200');
+            }
+            
+            const missing = [];
+            if (!checks.length) missing.push('8+ characters');
+            if (!checks.upper) missing.push('uppercase');
+            if (!checks.lower) missing.push('lowercase');
+            if (!checks.number) missing.push('number');
+            if (!checks.special) missing.push('special character');
+            
+            if (missing.length > 0) {
+                hint.textContent = 'Need: ' + missing.join(', ');
+                hint.className = 'text-xs text-gray-500';
+            } else {
+                hint.textContent = 'Strong password!';
+                hint.className = 'text-xs text-emerald-600';
+            }
+            
+            checkPasswordMatch();
+        }
+        
+        // Password match checker
+        function checkPasswordMatch() {
+            const password = document.getElementById('registerPassword').value;
+            const confirm = document.getElementById('registerConfirmPassword').value;
+            const hint = document.getElementById('passwordMatchHint');
+            
+            if (confirm.length === 0) {
+                hint.classList.add('hidden');
+                return;
+            }
+            
+            hint.classList.remove('hidden');
+            
+            if (password === confirm) {
+                hint.textContent = '✓ Passwords match';
+                hint.className = 'text-xs text-emerald-600 dark:text-emerald-400 mt-1';
+            } else {
+                hint.textContent = '✗ Passwords do not match';
+                hint.className = 'text-xs text-red-500 mt-1';
+            }
+        }
+        
         // Role Selection
         function selectRole(role) {
             selectedRole = role;
@@ -585,38 +783,112 @@
             } else {
                 document.getElementById('roleMiddleman').classList.add('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/30');
             }
+        }
+        
+        // Register
+        async function register() {
+            const name = document.getElementById('registerName').value.trim();
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            const errorDiv = document.getElementById('registerError');
             
-            updateLoginButton();
+            errorDiv.classList.add('hidden');
+            
+            if (!name || name.length < 2) {
+                errorDiv.textContent = 'Please enter your full name';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!username) {
+                errorDiv.textContent = 'Please enter a username';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!password) {
+                errorDiv.textContent = 'Please enter a password';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                errorDiv.textContent = 'Passwords do not match';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            if (!selectedRole) {
+                errorDiv.textContent = 'Please select a role';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        username: username,
+                        password: password,
+                        name: name,
+                        role: selectedRole
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    showDashboard();
+                    showToast(`Welcome, ${currentUser.name}! Account created successfully.`, 'success');
+                } else {
+                    errorDiv.textContent = data.detail || 'Registration failed';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.remove('hidden');
+            }
         }
-        
-        function updateLoginButton() {
-            const userId = document.getElementById('userId').value.trim();
-            document.getElementById('loginBtn').disabled = !userId || !selectedRole;
-        }
-        
-        document.getElementById('userId').addEventListener('input', updateLoginButton);
         
         // Login
         async function login() {
-            const userId = document.getElementById('userId').value.trim();
-            if (!userId || !selectedRole) return;
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            errorDiv.classList.add('hidden');
+            
+            if (!username || !password) {
+                errorDiv.textContent = 'Please enter username and password';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
             
             try {
                 const response = await fetch(`${API_BASE}/api/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, role: selectedRole })
+                    body: JSON.stringify({ username: username, password: password })
                 });
                 
                 const data = await response.json();
+                
                 if (data.success) {
                     currentUser = data.user;
                     showDashboard();
-                    showToast(`Welcome, ${currentUser.name}!`, 'success');
+                    showToast(`Welcome back, ${currentUser.name}!`, 'success');
+                } else {
+                    errorDiv.textContent = data.detail || 'Invalid username or password';
+                    errorDiv.classList.remove('hidden');
                 }
             } catch (error) {
                 console.error('Login error:', error);
-                showToast('Connection error. Please try again.', 'error');
+                errorDiv.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.remove('hidden');
             }
         }
         
@@ -626,11 +898,18 @@
             voiceContext = {};
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('dashboard').classList.add('hidden');
-            document.getElementById('userId').value = '';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('registerName').value = '';
+            document.getElementById('registerUsername').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('registerConfirmPassword').value = '';
             document.getElementById('roleManager').classList.remove('border-emerald-500', 'bg-emerald-50');
             document.getElementById('roleMiddleman').classList.remove('border-blue-500', 'bg-blue-50');
             document.getElementById('userAvatar').classList.add('hidden');
-            updateLoginButton();
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('registerError').classList.add('hidden');
+            showLoginTab();
         }
         
         function showDashboard() {
