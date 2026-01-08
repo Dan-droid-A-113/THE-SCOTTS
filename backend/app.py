@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import sqlite3
 import json
 import os
@@ -494,16 +494,55 @@ def voice_agent(input: VoiceInput):
     return response
 
 def process_manager_voice_query(text: str, stock: list, context: dict, user_id: str, cursor, conn) -> dict:
-    """Process voice query for stock managers"""
+    """Process voice query for stock managers - includes adding stock via voice"""
     today = date.today()
+    
+    # Handle add stock flow
+    if context.get('stage') == 'adding_stock':
+        return handle_add_stock_flow(text, context, user_id, cursor, conn)
     
     # Greeting
     if text.strip() in ['hello', 'hi', 'hey', 'start', 'hi there', 'hello there']:
         return {
-            "response": "Hello! I'm your stock management assistant. I can help you check your inventory, find expiring items, and get stock summaries. What would you like to know?",
+            "response": "Hello! I'm your stock management assistant. I can help you add stock, check inventory, find expiring items, and get summaries. Say 'add stock' to add new items or ask about your inventory.",
             "action": "greeting",
             "context": {"stage": "initial"}
         }
+    
+    # Add stock intent
+    if any(phrase in text for phrase in ['add stock', 'add item', 'add product', 'new stock', 'new item', 'create stock', 'add new']):
+        return {
+            "response": "Sure! Let's add new stock. What's the product name?",
+            "action": "add_stock_start",
+            "context": {"stage": "adding_stock", "step": "product_name"}
+        }
+    
+    # Quick add with product name mentioned
+    product_keywords = ['apple', 'milk', 'bread', 'vegetable', 'fruit', 'dairy', 'meat', 'fish', 'rice', 'wheat', 'oil', 'sugar', 'orange', 'banana', 'tomato', 'potato', 'onion', 'chicken', 'egg', 'cheese', 'butter', 'yogurt']
+    mentioned = [kw for kw in product_keywords if kw in text]
+    
+    if mentioned and any(word in text for word in ['add', 'create', 'new']):
+        product_name = mentioned[0].title()
+        # Try to extract quantity
+        quantity = None
+        words = text.split()
+        for i, word in enumerate(words):
+            if word.isdigit():
+                quantity = int(word)
+                break
+        
+        if quantity:
+            return {
+                "response": f"Adding {quantity} units of {product_name}. What's the expiry date? Say it like 'January 15' or 'in 7 days'.",
+                "action": "add_stock_quantity",
+                "context": {"stage": "adding_stock", "step": "expiry_date", "product_name": product_name, "quantity": quantity}
+            }
+        else:
+            return {
+                "response": f"Adding {product_name}. How many units?",
+                "action": "add_stock_product",
+                "context": {"stage": "adding_stock", "step": "quantity", "product_name": product_name}
+            }
     
     # Stock summary
     if any(word in text for word in ['summary', 'overview', 'status', 'how much', 'total']):
@@ -564,9 +603,6 @@ def process_manager_voice_query(text: str, stock: list, context: dict, user_id: 
         }
     
     # Search products
-    product_keywords = ['apple', 'milk', 'bread', 'vegetable', 'fruit', 'dairy', 'meat', 'fish', 'rice', 'wheat', 'oil', 'sugar']
-    mentioned = [kw for kw in product_keywords if kw in text]
-    
     if mentioned or any(word in text for word in ['find', 'search', 'show', 'check']):
         found = []
         for item in stock:
@@ -603,14 +639,206 @@ def process_manager_voice_query(text: str, stock: list, context: dict, user_id: 
     # Help
     if any(word in text for word in ['help', 'what can', 'how']):
         return {
-            "response": "I can help you with: Getting inventory summary - say 'show summary'. Finding expiring items - say 'what's expiring soon'. Searching products - say 'find apples'. What would you like to do?",
+            "response": "I can help you with: Adding stock - say 'add stock' or 'add 50 apples'. Getting summary - say 'show summary'. Finding expiring items - say 'what's expiring soon'. Searching - say 'find apples'. What would you like to do?",
             "action": "help",
             "context": {"stage": "initial"}
         }
     
+    # Cancel
+    if any(word in text for word in ['cancel', 'stop', 'nevermind', 'no']):
+        return {
+            "response": "Okay, cancelled. What else can I help you with?",
+            "action": "cancelled",
+            "context": {"stage": "initial"}
+        }
+    
     return {
-        "response": "I can help you manage your stock. Try saying 'show summary', 'what's expiring soon', or 'find' followed by a product name.",
+        "response": "I can help you manage your stock. Say 'add stock' to add items, 'show summary' for overview, or 'what's expiring soon' to check urgent items.",
         "action": "default",
+        "context": {"stage": "initial"}
+    }
+
+def handle_add_stock_flow(text: str, context: dict, user_id: str, cursor, conn) -> dict:
+    """Handle the multi-step flow for adding stock via voice"""
+    today = date.today()
+    step = context.get('step', 'product_name')
+    
+    # Cancel at any point
+    if any(word in text for word in ['cancel', 'stop', 'nevermind']):
+        return {
+            "response": "Stock addition cancelled. What else can I help you with?",
+            "action": "cancelled",
+            "context": {"stage": "initial"}
+        }
+    
+    if step == 'product_name':
+        # Extract product name from text
+        product_name = text.strip().title()
+        if len(product_name) < 2:
+            return {
+                "response": "I didn't catch that. What's the product name?",
+                "action": "retry_product",
+                "context": context
+            }
+        return {
+            "response": f"Got it, {product_name}. How many units?",
+            "action": "add_stock_product",
+            "context": {"stage": "adding_stock", "step": "quantity", "product_name": product_name}
+        }
+    
+    elif step == 'quantity':
+        # Extract quantity
+        quantity = None
+        words = text.split()
+        for word in words:
+            if word.isdigit():
+                quantity = int(word)
+                break
+        
+        if not quantity:
+            # Try to parse number words
+            number_words = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'ten': 10, 'twenty': 20, 'thirty': 30, 'forty': 40, 'fifty': 50, 'hundred': 100}
+            for word, num in number_words.items():
+                if word in text.lower():
+                    quantity = num
+                    break
+        
+        if not quantity or quantity <= 0:
+            return {
+                "response": "I didn't catch the quantity. How many units?",
+                "action": "retry_quantity",
+                "context": context
+            }
+        
+        context['quantity'] = quantity
+        context['step'] = 'expiry_date'
+        return {
+            "response": f"{quantity} units. What's the expiry date? Say something like 'January 15', 'next week', or 'in 10 days'.",
+            "action": "add_stock_quantity",
+            "context": context
+        }
+    
+    elif step == 'expiry_date':
+        # Parse expiry date
+        expiry_date = None
+        text_lower = text.lower()
+        
+        # Check for relative dates
+        if 'today' in text_lower:
+            expiry_date = today
+        elif 'tomorrow' in text_lower:
+            expiry_date = today + timedelta(days=1)
+        elif 'next week' in text_lower or 'in a week' in text_lower:
+            expiry_date = today + timedelta(days=7)
+        elif 'in' in text_lower and 'day' in text_lower:
+            # Extract number of days
+            words = text.split()
+            for i, word in enumerate(words):
+                if word.isdigit():
+                    expiry_date = today + timedelta(days=int(word))
+                    break
+        else:
+            # Try to parse month and day
+            months = {'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6, 
+                     'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
+                     'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6, 'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+            
+            month = None
+            day = None
+            words = text_lower.split()
+            
+            for word in words:
+                if word in months:
+                    month = months[word]
+                elif word.isdigit() and 1 <= int(word) <= 31:
+                    day = int(word)
+            
+            if month and day:
+                year = today.year
+                if month < today.month or (month == today.month and day < today.day):
+                    year += 1
+                try:
+                    expiry_date = date(year, month, day)
+                except ValueError:
+                    pass
+        
+        if not expiry_date:
+            return {
+                "response": "I couldn't understand the date. Please say it like 'January 15', 'next week', or 'in 10 days'.",
+                "action": "retry_expiry",
+                "context": context
+            }
+        
+        context['expiry_date'] = expiry_date.strftime("%Y-%m-%d")
+        context['step'] = 'price'
+        return {
+            "response": f"Expiry date set to {expiry_date.strftime('%B %d, %Y')}. What's the price per unit? Say 'skip' if you don't want to set a price.",
+            "action": "add_stock_expiry",
+            "context": context
+        }
+    
+    elif step == 'price':
+        price = None
+        
+        if 'skip' in text.lower() or 'no price' in text.lower() or 'no' == text.lower().strip():
+            price = None
+        else:
+            # Extract price
+            words = text.replace('₹', '').replace('$', '').replace('rupees', '').replace('rupee', '').split()
+            for word in words:
+                try:
+                    price = float(word)
+                    break
+                except ValueError:
+                    continue
+        
+        context['price'] = price
+        context['step'] = 'confirm'
+        
+        product_name = context.get('product_name')
+        quantity = context.get('quantity')
+        expiry_date = context.get('expiry_date')
+        price_text = f"₹{price}" if price else "no price set"
+        
+        return {
+            "response": f"Ready to add: {product_name}, {quantity} units, expires {expiry_date}, {price_text}. Say 'confirm' to add or 'cancel' to abort.",
+            "action": "add_stock_confirm",
+            "context": context
+        }
+    
+    elif step == 'confirm':
+        if any(word in text.lower() for word in ['yes', 'confirm', 'add', 'ok', 'okay', 'correct']):
+            # Add the stock
+            product_name = context.get('product_name')
+            quantity = context.get('quantity')
+            expiry_date = context.get('expiry_date')
+            price = context.get('price')
+            
+            exp_date = datetime.strptime(expiry_date, "%Y-%m-%d").date()
+            status = "expired" if exp_date < today else "available"
+            
+            cursor.execute(
+                "INSERT INTO stock (manager_id, product_name, quantity, expiry_date, price, status) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, product_name, quantity, expiry_date, price, status)
+            )
+            conn.commit()
+            
+            return {
+                "response": f"Done! Added {quantity} units of {product_name} to your inventory. Would you like to add more stock?",
+                "action": "stock_added",
+                "data": {"product_name": product_name, "quantity": quantity, "expiry_date": expiry_date, "price": price},
+                "context": {"stage": "initial"}
+            }
+        else:
+            return {
+                "response": "Say 'confirm' to add the stock or 'cancel' to abort.",
+                "action": "awaiting_confirm",
+                "context": context
+            }
+    
+    return {
+        "response": "Something went wrong. Let's start over. Say 'add stock' to begin.",
+        "action": "error",
         "context": {"stage": "initial"}
     }
 
