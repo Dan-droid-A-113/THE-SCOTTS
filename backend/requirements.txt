@@ -1,4 +1,6 @@
-
 fastapi
-uvicorn
+uvicorn[standard]
 pandas
+python-multipart
+pydantic
+aiosqlite
