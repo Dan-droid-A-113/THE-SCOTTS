@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>Green-Chain | Pro Command Center</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: radial-gradient(circle at top left, #f8fafc, #e2e8f0); min-height: 100vh; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .emerald-gradient { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .pulse-ring { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-10">
+
+<main class="max-w-5xl mx-auto">
+    <nav class="flex justify-between items-center mb-10">
+        <div class="flex items-center gap-2">
+            <div class="w-10 h-10 emerald-gradient rounded-xl flex items-center justify-center shadow-lg">
+                <span class="text-white font-bold">G</span>
+            </div>
+            <h1 class="text-xl font-bold text-slate-800 tracking-tight">
+                Green-Chain <span class="text-emerald-600">Pro</span>
+            </h1>
+        </div>
+        <div class="hidden md:block text-xs font-semibold uppercase tracking-widest text-slate-400">
+            Logistics AI Dispatcher
+        </div>
+    </nav>
+
+    <header class="mb-12">
+        <h2 class="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4">
+            Rescue Profit. <br>
+            <span class="text-emerald-600">Reduce Waste.</span>
+        </h2>
+        <p class="text-slate-500 text-lg max-w-2xl leading-relaxed">
+            Our autonomous agent scans your inventory, predicts expiry risks, and negotiates with the best local partners in real-time.
+        </p>
+    </header>
+
+    <div class="grid lg:grid-cols-3 gap-8">
+
+        <div class="lg:col-span-1 space-y-6">
+            <div class="glass p-6 rounded-3xl shadow-xl">
+                <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6">
+                    Inventory Input
+                </h3>
+
+                <input type="file" id="csvFile" class="hidden">
+                <label for="csvFile"
+                       class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-2xl cursor-pointer hover:border-emerald-400 transition-all bg-slate-50/50">
+                    <span class="text-xs font-medium text-slate-500">
+                        Drop Logistics CSV here
+                    </span>
+                </label>
+
+                <button onclick="startProAnalysis()"
+                        class="w-full mt-6 emerald-gradient text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all pulse-ring">
+                    Run Triage Agent
+                </button>
+            </div>
+
+            <div class="glass p-6 rounded-3xl h-48 overflow-hidden flex flex-col">
+                <h3 class="text-xs font-bold text-slate-400 uppercase mb-4">AI Logs</h3>
+                <div id="logContent"
+                     class="text-xs font-mono text-slate-600 space-y-2 overflow-y-auto">
+                    <p>> System standby...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+
+            <div id="loader"
+                 class="hidden glass p-12 rounded-3xl flex flex-col items-center justify-center space-y-4">
+                <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <p class="text-slate-600 font-medium animate-pulse">
+                    Agent is negotiating with 14 local partners...
+                </p>
+            </div>
+
+            <div id="resultsView" class="hidden space-y-6">
+                <div class="bg-white p-8 rounded-3xl shadow-2xl border-l-8 border-emerald-500">
+                    <span class="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full uppercase">
+                        Best Match Selected
+                    </span>
+                    <h4 id="bestBuyer"
+                        class="text-4xl font-black text-slate-900 mt-4 mb-2">
+                        M-102 Logistics
+                    </h4>
+                    <p class="text-slate-500 font-medium italic">
+                        "Confirmed purchase of Organic Milk batch at ₹92. Pickup scheduled for 08:00 AM."
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<script>
+    function speak(text) {
+        window.speechSynthesis.cancel(); // <-- FIX: prevents overlapping speech
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.1;
+        u.pitch = 0.95;
+        window.speechSynthesis.speak(u);
+    }
+
+    function log(message) {
+        const l = document.getElementById('logContent');
+        l.innerHTML += `<p class="border-l-2 border-emerald-500 pl-2">> ${message}</p>`;
+        l.scrollTop = l.scrollHeight;
+    }
+
+    function startProAnalysis() {
+        document.getElementById('loader').classList.remove('hidden');
+        document.getElementById('resultsView').classList.add('hidden');
+
+        log("Reading inventory file...");
+        speak("Initiating Green-Chain triage. Accessing local partner network.");
+
+        setTimeout(() => {
+            log("Expiry triage: 12 units of Milk identified as CRITICAL (2 days left).");
+            log("Contacting Middleman M-102 via secure webhook...");
+        }, 1500);
+
+        setTimeout(() => {
+            document.getElementById('loader').classList.add('hidden');
+            document.getElementById('resultsView').classList.remove('hidden');
+            log("Decision finalized. M-102 selected for high shelf-life feasibility.");
+            speak("Analysis complete. Buyer M-102 selected for maximum profit efficiency. Logistics dispatch initiated.");
+        }, 4000);
+    }
+</script>
+
+</body>
+</html>
