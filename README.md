@@ -93,14 +93,14 @@ THE-SCOTTS/
 
 
 
-🛠️ Tech Stack
+## 🛠️ Tech Stack
 Layer	Technologies
 🎨 Frontend	HTML, CSS, JavaScript, Tailwind CSS
 🔌 Backend	API Services, Business Logic
 🧠 AI / Voice	Voice Agent, Decision Engine
 🐳 Infrastructure	Docker, Docker Compose
 
-📋 Requirements
+##📋 Requirements
 Ensure the following are installed on your system:
 
 🐳 Docker (v20 or higher)
@@ -111,7 +111,7 @@ Ensure the following are installed on your system:
 
 🌐 Modern web browser
 
-📥 Installation
+## 📥 Installation
 1️⃣ Clone the Repository
 bash
 Copy code
@@ -124,7 +124,10 @@ env
 Copy code
 PORT=3000
 API_URL=http://localhost:8000
-▶️ How to Run the Project
+
+
+
+##▶️ How to Run the Project
 🚀 Using Docker (Recommended)
 bash
 Copy code
@@ -151,7 +154,9 @@ B --> C[Urgency Classification]
 C --> D[Buyer Matching]
 D --> E[Voice Agent Assistance]
 E --> F[Clearance Decision]
-🧪 Usage Instructions
+
+
+##🧪 Usage Instructions
 Upload inventory data using CSV format
 
 System analyzes expiry and urgency
@@ -162,7 +167,7 @@ Voice agent assists with real-time queries
 
 Clearance decisions are finalized
 
-⚠️ Limitations
+##⚠️ Limitations
 Prototype-level implementation
 
 Simplified buyer datasets
@@ -171,7 +176,7 @@ No production-grade authentication
 
 Limited scalability and security
 
-🚧 Future Enhancements
+##🚧 Future Enhancements
 📈 Demand forecasting using ML
 
 💸 Dynamic pricing based on expiry
@@ -184,7 +189,7 @@ Limited scalability and security
 
 ☁️ Cloud deployment support
 
-🧪 Use Cases
+##🧪 Use Cases
 Warehouse inventory clearance
 
 Retail excess stock handling
@@ -193,10 +198,10 @@ Supply-chain optimization demos
 
 Hackathon and academic projects
 
-👥 Team
+##👥 Team
 Developed as a hackathon project by Team The Scotts.
 
-📜 License
+##📜 License
 This project is intended for educational and hackathon purposes only.
 A formal license may be added for production use.
 
