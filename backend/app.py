@@ -9,3 +9,10 @@ app.include_router(voice_router)
 def health_check():
     return {"status": "backend running"}
 
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.get("/")
+def health_check():
+    return {"status": "backend running"}
