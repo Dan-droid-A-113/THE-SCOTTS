@@ -16,6 +16,10 @@
             70% { box-shadow: 0 0 0 15px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body class="p-4 md:p-10">
@@ -61,7 +65,7 @@
                     </span>
                 </label>
 
-                <button onclick="startProAnalysis()"
+                <button onclick="startProAnalysis(this)"
                         class="w-full mt-6 emerald-gradient text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all pulse-ring">
                     Run Triage Agent
                 </button>
@@ -91,8 +95,7 @@
                     <span class="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full uppercase">
                         Best Match Selected
                     </span>
-                    <h4 id="bestBuyer"
-                        class="text-4xl font-black text-slate-900 mt-4 mb-2">
+                    <h4 class="text-4xl font-black text-slate-900 mt-4 mb-2">
                         M-102 Logistics
                     </h4>
                     <p class="text-slate-500 font-medium italic">
@@ -107,7 +110,7 @@
 
 <script>
     function speak(text) {
-        window.speechSynthesis.cancel(); // <-- FIX: prevents overlapping speech
+        window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.rate = 1.1;
         u.pitch = 0.95;
@@ -120,7 +123,9 @@
         l.scrollTop = l.scrollHeight;
     }
 
-    function startProAnalysis() {
+    function startProAnalysis(btn) {
+        btn.disabled = true;
+
         document.getElementById('loader').classList.remove('hidden');
         document.getElementById('resultsView').classList.add('hidden');
 
@@ -137,6 +142,7 @@
             document.getElementById('resultsView').classList.remove('hidden');
             log("Decision finalized. M-102 selected for high shelf-life feasibility.");
             speak("Analysis complete. Buyer M-102 selected for maximum profit efficiency. Logistics dispatch initiated.");
+            btn.disabled = false;
         }, 4000);
     }
 </script>
